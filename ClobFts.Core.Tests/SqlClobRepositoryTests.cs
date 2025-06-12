@@ -166,8 +166,14 @@ namespace ClobFts.Core.Tests
             Assert.IsNotNull(queryParam, "Parameter @FtsQuery not found.");
             Assert.AreEqual(expectedFtsQuery, queryParam.Value, "Parameter @FtsQuery has incorrect value.");
             
-            _mockCommand.Protected().Verify<DbDataReader>("ExecuteDbDataReader", Times.Once(), ItExpr.IsAny<CommandBehavior>());
-            _mockCommand.Verify(cmd => cmd.ExecuteReader(It.IsAny<CommandBehavior>()), Times.Never()); 
+            // Verify that the underlying protected method ExecuteDbDataReader was called with CommandBehavior.Default.
+            // The SUT calls the public ExecuteReader(), which in turn calls this protected method.
+            _mockCommand.Protected().Verify<DbDataReader>(
+                "ExecuteDbDataReader", 
+                Times.Once(), 
+                ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default)
+            );
+            
             _mockConnection.Verify(c => c.Open(), Times.Once());
 
             Assert.AreEqual(expectedDocNames.Count, results.Count, "Incorrect number of results.");
