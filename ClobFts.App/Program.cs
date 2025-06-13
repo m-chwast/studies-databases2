@@ -28,7 +28,7 @@ namespace ClobFts.App
                 Console.WriteLine("4. Wyjdź");
                 Console.Write("Twój wybór: ");
 
-                string choice = Console.ReadLine();
+                string choice = Console.ReadLine() ?? "";
 
                 try
                 {
@@ -55,8 +55,6 @@ namespace ClobFts.App
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Wystąpił błąd: {ex.Message}");
-                    // Dla celów deweloperskich można odkomentować poniższe:
-                    // Console.WriteLine($"Szczegóły: {ex.ToString()}");
                     Console.ResetColor();
                 }
             }
@@ -65,7 +63,7 @@ namespace ClobFts.App
         private static void AddDocumentUI()
         {
             Console.Write("Podaj nazwę dokumentu: ");
-            string name = Console.ReadLine();
+            string? name = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(name))
             {
                 Console.WriteLine("Nazwa dokumentu nie może być pusta.");
@@ -73,7 +71,7 @@ namespace ClobFts.App
             }
 
             Console.Write("Podaj treść dokumentu (wiele linii, zakończ pisząc 'EOF' na nowej linii):\n");
-            string line;
+            string? line;
             var contentBuilder = new StringBuilder();
             while ((line = Console.ReadLine()) != null && line.Trim().ToUpper() != "EOF")
             {
@@ -88,7 +86,7 @@ namespace ClobFts.App
         private static void DeleteDocumentUI()
         {
             Console.Write("Podaj nazwę dokumentu do usunięcia: ");
-            string name = Console.ReadLine();
+            string? name = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(name))
             {
                 Console.WriteLine("Nazwa dokumentu nie może być pusta.");
@@ -101,7 +99,7 @@ namespace ClobFts.App
         private static void SearchDocumentsUI()
         {
             Console.Write("Podaj frazę do wyszukania: ");
-            string query = Console.ReadLine();
+            string? query = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(query))
             {
                 Console.WriteLine("Fraza do wyszukania nie może być pusta.");
