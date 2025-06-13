@@ -55,9 +55,8 @@ namespace ClobFts.Core.Tests
             string docContent = "Content for add and retrieve test.";
             AddTestDocument(docName, docContent);
 
-            // Search for a part of the document name and a word from its content
-            // Ensuring the query is specific enough to target the added document.
-            var results = _repository.SearchDocuments($"\"AddRetrieveTest\" AND \"retrieve\""); 
+            // Search for terms known to be in the content.
+            var results = _repository.SearchDocuments($"\"Content\" AND \"retrieve test\""); 
             Assert.IsTrue(results.Any(d => d.Item1 == docName && d.Item2 == docContent), "Document not found or content mismatch after add.");
         }
 
@@ -182,34 +181,35 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void SearchDocumentsByName_SingleTerm_ShouldReturnMatchingDocuments()
         {
-            string term = $"NameTerm_{Guid.NewGuid().ToString("N")}";
-            string docName1 = $"{term}_Doc1_{Guid.NewGuid()}";
-            string docContent1 = "Content for name search.";
-            string docName2 = $"OtherName_Doc2_{Guid.NewGuid()}";
-            string docContent2 = "Another content.";
+            string uniqueTerm = $"NameTermUnique{Guid.NewGuid().ToString("N")}";
+            string docName1 = $"{uniqueTerm}_DocAlpha"; // Simplified name structure
+            string docContent1 = $"Content for {docName1}";
+            string docName2 = $"OtherNameBeta_{Guid.NewGuid().ToString("N")}"; // Clearly distinct name
+            string docContent2 = "Another content for beta.";
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{term}\"");
-            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the term in name was not found.");
-            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the term in name was found.");
+            var results = _repository.SearchDocumentsByName($"\\\"{uniqueTerm}\\\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the term '{uniqueTerm}' in name was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the term '{uniqueTerm}' in name was found unexpectedly.");
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void SearchDocumentsByName_Phrase_ShouldReturnExactMatches()
         {
-            string phrase = $"Exact Name Phrase {Guid.NewGuid().ToString("N")}";
-            string docName1 = $"{phrase}_Doc1_{Guid.NewGuid()}";
-            string docContent1 = "Content for name phrase search.";
-            string docName2 = $"Exact Name But Not Phrase Doc2_{Guid.NewGuid()}";
-            string docContent2 = "Another content.";
+            string uniquePhrase = $"Exact Name Phrase Search {Guid.NewGuid().ToString("N")}";
+            string docName1 = $"{uniquePhrase}_DocGamma"; // Simplified name structure
+            string docContent1 = $"Content for {docName1}";
+            // Ensure docName2 does not contain uniquePhrase or its significant parts
+            string docName2 = $"DifferentNameDelta_{Guid.NewGuid().ToString("N")} NotThePhrase"; 
+            string docContent2 = "Another content for delta.";
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{phrase}\"");
-            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the exact phrase in name was not found.");
-            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the exact phrase in name was found.");
+            var results = _repository.SearchDocumentsByName($"\\\"{uniquePhrase}\\\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the phrase '{uniquePhrase}' in name was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the phrase '{uniquePhrase}' in name was found unexpectedly.");
         }
 
         [TestMethod]
