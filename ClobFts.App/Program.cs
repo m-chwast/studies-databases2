@@ -8,35 +8,11 @@ namespace ClobFts.App
 {
     class Program
     {
-        // IMPORTANT: Replace with your actual connection string
-        // Example for local SQL Express with Windows Authentication:
-        // "Server=localhost\\SQLEXPRESS;Database=ClobFtsDB;Integrated Security=True;TrustServerCertificate=True;"
-        // Example with SQL Server Authentication:
-        // "Server=your_server_address;Database=ClobFtsDB;User ID=your_user;Password=your_password;TrustServerCertificate=True;"
-        private const string ConnectionString = "Server=your_server_name;Database=your_database_name;User ID=your_user_id;Password=your_password;";
+        private const string ConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
         private static IClobRepository _repository;
 
         static void Main(string[] args)
         {
-            // Check if the connection string is a placeholder
-            if (ConnectionString.Contains("your_server_name") || 
-                ConnectionString.Contains("your_database_name") || 
-                (ConnectionString.Contains("your_user_id") && !ConnectionString.ToLower().Contains("integrated security=true")) ||
-                (ConnectionString.Contains("your_password") && !ConnectionString.ToLower().Contains("integrated security=true")))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                Console.WriteLine("!!! PAMIĘTAJ: Zaktualizuj ConnectionString w Program.cs              !!!");
-                Console.WriteLine("!!! przed uruchomieniem aplikacji.                                    !!!");
-                Console.WriteLine("!!! Przykłady prawidłowych connection stringów są w komentarzu        !!!");
-                Console.WriteLine("!!! w kodzie (Program.cs).                                            !!!");
-                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                Console.ResetColor();
-                Console.WriteLine("\nNaciśnij dowolny klawisz, aby zakończyć...");
-                Console.ReadKey();
-                return;
-            }
-
             _repository = new SqlClobRepository(ConnectionString);
 
             Console.WriteLine("Aplikacja do zarządzania dokumentami CLOB z FTS");
