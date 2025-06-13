@@ -76,6 +76,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void AddDocument_ValidInput_ShouldExecuteCorrectSqlAndParameters()
         {
             // Arrange
@@ -103,6 +104,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void DeleteDocument_ExistingDocument_ShouldExecuteCorrectSqlAndParameters()
         {
             // Arrange
@@ -125,6 +127,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void DeleteDocument_NonExistingDocument_ShouldThrowException()
         {
             // Arrange
@@ -138,6 +141,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocuments_ValidQuery_ShouldExecuteCorrectSqlAndReturnResults()
         {
             // Arrange
@@ -186,6 +190,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
         {
             // Arrange
@@ -196,6 +201,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocuments_WhitespaceQuery_ShouldThrowArgumentException()
         {
             // Arrange
@@ -206,6 +212,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocuments_NoResults_ShouldReturnEmptyList()
         {
             // Arrange
@@ -230,6 +237,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocuments_RawFtsQueryWithOperators_ShouldPassQueryAsIs() // Renamed from SearchDocuments_QueryWithQuotes_ShouldEscapeQuotesInFtsQuery
         {
             // Arrange
@@ -254,6 +262,7 @@ namespace ClobFts.Core.Tests
 
         // Tests for SearchDocumentsByName
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_ValidQuery_ShouldExecuteCorrectSqlAndReturnResults()
         {
             // Arrange
@@ -302,6 +311,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_EmptyQuery_ShouldThrowArgumentException()
         {
             // Arrange
@@ -312,6 +322,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_WhitespaceQuery_ShouldThrowArgumentException()
         {
             // Arrange
@@ -322,6 +333,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_NoResults_ShouldReturnEmptyList()
         {
             // Arrange
@@ -346,6 +358,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_RawFtsQueryWithOperators_ShouldPassQueryAsIs() // Renamed and logic updated
         {
             // Arrange
@@ -369,6 +382,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_SimpleTerm_ShouldPassQueryAsIs()
         {
             // Arrange
@@ -392,6 +406,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_PhraseQuery_ShouldPassQueryAsIs()
         {
             // Arrange
@@ -415,6 +430,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void SearchDocumentsByName_ComplexQuery_ShouldPassQueryAsIs()
         {
             // Arrange
@@ -439,6 +455,7 @@ namespace ClobFts.Core.Tests
 
         // Tests for GetAllDocumentNames
         [TestMethod]
+        [TestCategory("Unit")]
         public void GetAllDocumentNames_WhenDocumentsExist_ShouldReturnAllNamesOrdered()
         {
             // Arrange
@@ -467,6 +484,7 @@ namespace ClobFts.Core.Tests
         }
 
         [TestMethod]
+        [TestCategory("Unit")]
         public void GetAllDocumentNames_WhenNoDocumentsExist_ShouldReturnEmptyList()
         {
             // Arrange
