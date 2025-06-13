@@ -87,15 +87,30 @@ namespace ClobFts.App
 
         private static void DeleteDocumentUI()
         {
-            Console.Write("Podaj nazwę dokumentu do usunięcia: ");
-            string? name = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(name))
+            Console.WriteLine("Dostępne dokumenty:");
+            var documentNames = _repository.GetAllDocumentNames();
+            if (documentNames.Any())
+            {
+                foreach (var name in documentNames)
+                {
+                    Console.WriteLine($"- {name}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Brak dokumentów w bazie.");
+                return; // No documents to delete
+            }
+
+            Console.Write("\nPodaj nazwę dokumentu do usunięcia: ");
+            string? nameToDelete = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(nameToDelete))
             {
                 Console.WriteLine("Nazwa dokumentu nie może być pusta.");
                 return;
             }
-            _repository.DeleteDocument(name);
-            Console.WriteLine($"Dokument '{name}' usunięty pomyślnie.");
+            _repository.DeleteDocument(nameToDelete);
+            Console.WriteLine($"Dokument '{nameToDelete}' usunięty pomyślnie.");
         }
 
         private static void SearchDocumentsByContentUI() // Renamed for clarity

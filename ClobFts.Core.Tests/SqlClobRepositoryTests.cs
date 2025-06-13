@@ -141,8 +141,8 @@ namespace ClobFts.Core.Tests
         public void SearchDocuments_ValidQuery_ShouldExecuteCorrectSqlAndReturnResults()
         {
             // Arrange
-            string searchQuery = "test";
-            string expectedFtsQuery = "\"test\"";
+            string searchQuery = "test content"; // Raw FTS query
+            string expectedFtsQuery = "test content"; // Should be passed as-is
             var expectedResults = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("doc1.txt", "This is a test document."),
@@ -161,6 +161,7 @@ namespace ClobFts.Core.Tests
                        .Callback(() => _mockDataReader.Setup(r => r.GetString(1)).Returns(expectedResults[1].Item2)); // Corrected: _mockDataReader
 
             _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
+            _parameterList.Clear(); // Clear params before Act
 
             // Act
             var results = _repository.SearchDocuments(searchQuery);
@@ -173,7 +174,7 @@ namespace ClobFts.Core.Tests
             var param = _parameterList[0]; // Use _parameterList
             Assert.IsNotNull(param);
             Assert.AreEqual("@FtsQuery", param.ParameterName);
-            Assert.AreEqual(expectedFtsQuery, param.Value);
+            Assert.AreEqual(expectedFtsQuery, param.Value); // Verify raw query is passed
 
             Assert.IsNotNull(results);
             Assert.AreEqual(expectedResults.Count, results.Count);
@@ -208,9 +209,11 @@ namespace ClobFts.Core.Tests
         public void SearchDocuments_NoResults_ShouldReturnEmptyList()
         {
             // Arrange
-            string searchQuery = "nonexistent";
-            _mockDataReader.Setup(r => r.Read()).Returns(false); // Corrected: _mockDataReader instead of _mockReader
-            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
+            string searchQuery = "\"nonexistent content\""; // Raw FTS query
+            string expectedFtsQuery = "\"nonexistent content\""; // Should be passed as-is
+            _mockDataReader.Setup(r => r.Read()).Returns(false); 
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); 
+            _parameterList.Clear(); // Clear params before Act
 
             // Act
             var results = _repository.SearchDocuments(searchQuery);
@@ -218,28 +221,35 @@ namespace ClobFts.Core.Tests
             // Assert
             Assert.IsNotNull(results);
             Assert.AreEqual(0, results.Count);
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)", Times.Once());
+            Assert.AreEqual(1, _parameterList.Count);
+            var param = _parameterList[0];
+            Assert.IsNotNull(param);
+            Assert.AreEqual("@FtsQuery", param.ParameterName);
+            Assert.AreEqual(expectedFtsQuery, param.Value); // Verify raw query is passed
         }
 
         [TestMethod]
-        public void SearchDocuments_QueryWithQuotes_ShouldEscapeQuotesInFtsQuery()
+        public void SearchDocuments_RawFtsQueryWithOperators_ShouldPassQueryAsIs() // Renamed from SearchDocuments_QueryWithQuotes_ShouldEscapeQuotesInFtsQuery
         {
             // Arrange
-            string searchQuery = "test \"quote\"";
-            string expectedFtsQuery = "\"test \"\"quote\"\"\""; // FTS expects quotes to be doubled
+            string searchQuery = "\"search phrase\" OR anotherTerm"; // Raw FTS query with operators
+            string expectedFtsQuery = "\"search phrase\" OR anotherTerm"; // Should be passed as-is
 
-            _mockDataReader.Setup(r => r.Read()).Returns(false); // Corrected: _mockDataReader instead of _mockReader
-            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
+            _mockDataReader.Setup(r => r.Read()).Returns(false); 
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); 
+            _parameterList.Clear(); // Clear params before Act
 
             // Act
             _repository.SearchDocuments(searchQuery);
 
             // Assert
-            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)", Times.Once()); // Verify CommandText is set
-            Assert.AreEqual(1, _parameterList.Count); // Use _parameterList populated by callback
-            var param = _parameterList[0]; // Use _parameterList
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)", Times.Once()); 
+            Assert.AreEqual(1, _parameterList.Count); 
+            var param = _parameterList[0]; 
             Assert.IsNotNull(param);
             Assert.AreEqual("@FtsQuery", param.ParameterName);
-            Assert.AreEqual(expectedFtsQuery, param.Value);
+            Assert.AreEqual(expectedFtsQuery, param.Value); // Verify raw query is passed
         }
 
         // Tests for SearchDocumentsByName
@@ -425,6 +435,54 @@ namespace ClobFts.Core.Tests
             Assert.IsNotNull(param);
             Assert.AreEqual("@FtsQuery", param.ParameterName);
             Assert.AreEqual(expectedFtsQuery, param.Value);
+        }
+
+        // Tests for GetAllDocumentNames
+        [TestMethod]
+        public void GetAllDocumentNames_WhenDocumentsExist_ShouldReturnAllNamesOrdered()
+        {
+            // Arrange
+            var expectedNames = new List<string> { "AlphaDoc", "BetaDoc", "GammaDoc" };
+            _mockDataReader.SetupSequence(r => r.Read())
+                           .Returns(true)
+                           .Returns(true)
+                           .Returns(true)
+                           .Returns(false);
+            _mockDataReader.SetupSequence(r => r.GetString(0))
+                           .Returns(expectedNames[0])
+                           .Returns(expectedNames[1])
+                           .Returns(expectedNames[2]);
+            
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
+            _parameterList.Clear();
+
+            // Act
+            var actualNames = _repository.GetAllDocumentNames();
+
+            // Assert
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName FROM Documents ORDER BY DocumentName", Times.Once());
+            _mockCommand.Protected().Verify("ExecuteDbDataReader", Times.Once(), ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default));
+            Assert.AreEqual(0, _parameterList.Count); // No parameters expected for this query
+            CollectionAssert.AreEqual(expectedNames, actualNames);
+        }
+
+        [TestMethod]
+        public void GetAllDocumentNames_WhenNoDocumentsExist_ShouldReturnEmptyList()
+        {
+            // Arrange
+            _mockDataReader.Setup(r => r.Read()).Returns(false);
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
+            _parameterList.Clear();
+
+            // Act
+            var actualNames = _repository.GetAllDocumentNames();
+
+            // Assert
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName FROM Documents ORDER BY DocumentName", Times.Once());
+            _mockCommand.Protected().Verify("ExecuteDbDataReader", Times.Once(), ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default));
+            Assert.AreEqual(0, _parameterList.Count);
+            Assert.IsNotNull(actualNames);
+            Assert.AreEqual(0, actualNames.Count);
         }
     }
 }

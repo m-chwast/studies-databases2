@@ -8,5 +8,6 @@ namespace ClobFts.Core
         void DeleteDocument(string documentName);
         List<Tuple<string, string>> SearchDocuments(string searchQuery);
         List<Tuple<string, string>> SearchDocumentsByName(string documentNameQuery);
+        List<string> GetAllDocumentNames();
     }
 }

@@ -93,7 +93,8 @@ namespace ClobFts.Core
                 throw new ArgumentException("Search query cannot be empty.", nameof(searchQuery));
 
             var foundDocuments = new List<Tuple<string, string>>();
-            string ftsQuery = $"\"{searchQuery.Replace("\"", "\"\"")}\""; // Ensure FTS query is correctly formatted
+            // The searchQuery is now treated as a raw FTS query string.
+            string ftsQuery = searchQuery;
 
             using (DbConnection connection = _connectionFactory())
             {
@@ -160,6 +161,28 @@ namespace ClobFts.Core
                 }
             }
             return foundDocuments;
+        }
+
+        public List<string> GetAllDocumentNames()
+        {
+            var documentNames = new List<string>();
+            using (DbConnection connection = _connectionFactory())
+            {
+                connection.Open();
+                string sql = "SELECT DocumentName FROM Documents ORDER BY DocumentName";
+                using (DbCommand command = connection.CreateCommand())
+                {
+                    command.CommandText = sql;
+                    using (DbDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            documentNames.Add(reader.GetString(0));
+                        }
+                    }
+                }
+            }
+            return documentNames;
         }
     }
 }
