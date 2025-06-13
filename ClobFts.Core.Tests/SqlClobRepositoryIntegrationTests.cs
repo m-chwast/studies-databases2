@@ -189,7 +189,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\\\"{uniqueTerm}\\\"");
+            var results = _repository.SearchDocumentsByName($"\"{uniqueTerm}\""); // Corrected FTS query string
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the term '{uniqueTerm}' in name was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the term '{uniqueTerm}' in name was found unexpectedly.");
         }
@@ -207,7 +207,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\\\"{uniquePhrase}\\\"");
+            var results = _repository.SearchDocumentsByName($"\"{uniquePhrase}\"");
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the phrase '{uniquePhrase}' in name was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the phrase '{uniquePhrase}' in name was found unexpectedly.");
         }
