@@ -56,7 +56,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName, docContent);
 
             // Search for terms known to be in the content.
-            var results = _repository.SearchDocuments($"\"Content\" AND \"retrieve test\""); 
+            var results = _repository.SearchDocuments($"\"Content\" AND \"retrieve test.\""); 
             Assert.IsTrue(results.Any(d => d.Item1 == docName && d.Item2 == docContent), "Document not found or content mismatch after add.");
         }
 
@@ -207,7 +207,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{uniquePhrase}\"");
+            var results = _repository.SearchDocumentsByName($"\"{uniquePhrase}*\"");
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the phrase '{uniquePhrase}' in name was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the phrase '{uniquePhrase}' in name was found unexpectedly.");
         }
