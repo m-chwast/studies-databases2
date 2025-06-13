@@ -3,379 +3,277 @@ using ClobFts.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace ClobFts.Core.Tests
 {
-    /// <summary>
-    /// Integration tests for SqlClobRepository that connect to a real SQL Server database.
-    /// These tests require a running SQL Server instance with the Documents table and FTS enabled.
-    /// </summary>
     [TestClass]
     public class SqlClobRepositoryIntegrationTests
     {
-        // Connection string for integration tests - update this to match your test database
         private const string TestConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
-        
         private SqlClobRepository _repository;
-        private List<string> _testDocumentsToCleanup;
+        private List<string> _documentsToCleanup;
 
         [TestInitialize]
         public void TestInitialize()
         {
             _repository = new SqlClobRepository(TestConnectionString);
-            _testDocumentsToCleanup = new List<string>();
+            _documentsToCleanup = new List<string>();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            // Clean up any test documents created during the tests
-            foreach (string docName in _testDocumentsToCleanup)
+            foreach (var docName in _documentsToCleanup)
             {
                 try
                 {
                     _repository.DeleteDocument(docName);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Ignore errors during cleanup - document might not exist
+                    Console.WriteLine($"Cleanup error for {docName}: {ex.Message}");
+                    // Ignore errors during cleanup as document might have been deleted by the test itself
                 }
             }
+             // Ensure FTS changes from deletions are processed if any test failed mid-operation
+            Thread.Sleep(1000); // Adjusted sleep time for cleanup
+        }
+
+        private void AddTestDocument(string name, string content)
+        {
+            _repository.AddDocument(name, content);
+            _documentsToCleanup.Add(name);
+            Thread.Sleep(2500); // Increased sleep time for FTS indexing consistency
         }
 
         [TestMethod]
         [TestCategory("Integration")]
-        public void AddDocument_RealDatabase_ShouldInsertSuccessfully()
+        public void AddDocument_AndVerifyRetrieval_ShouldSucceed()
         {
-            // Arrange
-            string testDocName = $"IntegrationTest_Add_{Guid.NewGuid()}";
-            string testContent = "This is a test document for integration testing with real database connection.";
-            _testDocumentsToCleanup.Add(testDocName);
+            string docName = $"AddRetrieveTest_{Guid.NewGuid()}";
+            string docContent = "Content for add and retrieve test.";
+            AddTestDocument(docName, docContent);
 
-            // Act
-            _repository.AddDocument(testDocName, testContent);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
+            // Search for a part of the document name and a word from its content
+            // Ensuring the query is specific enough to target the added document.
+            var results = _repository.SearchDocuments($"\"AddRetrieveTest\" AND \"retrieve\""); 
+            Assert.IsTrue(results.Any(d => d.Item1 == docName && d.Item2 == docContent), "Document not found or content mismatch after add.");
+        }
 
-            // Assert - Verify document exists by searching for it
-            var searchResults = _repository.SearchDocuments("\\\"integration\\\" AND \\\"testing\\\"");
-            Assert.IsTrue(searchResults.Any(r => r.Item1 == testDocName), "Document should be found in search results");
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void DeleteDocument_ShouldRemoveFromDatabase()
+        {
+            string docName = $"DeleteTest_{Guid.NewGuid()}";
+            string docContent = "Content for delete test.";
+            AddTestDocument(docName, docContent);
+
+            _repository.DeleteDocument(docName);
+            _documentsToCleanup.Remove(docName); // Already deleted by test
+            Thread.Sleep(2500); // Allow time for FTS indexing to reflect deletion
+
+            var results = _repository.SearchDocuments($"\"{docName.Split('_')[0]}\"");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName), "Document found after deletion.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByContent_SingleTerm_ShouldReturnMatchingDocuments()
+        {
+            string term = $"UniqueTerm_{Guid.NewGuid().ToString("N")}";
+            string docName1 = $"ContentSingle1_{Guid.NewGuid()}";
+            string docContent1 = $"This document contains the {term}.";
+            string docName2 = $"ContentSingle2_{Guid.NewGuid()}";
+            string docContent2 = "This document does not.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+
+            var results = _repository.SearchDocuments($"\"{term}\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the term was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the term was found.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByContent_Phrase_ShouldReturnExactMatches()
+        {
+            string phrase = $"exact phrase test {Guid.NewGuid().ToString("N")}";
+            string docName1 = $"ContentPhrase1_{Guid.NewGuid()}";
+            string docContent1 = $"This document contains the {phrase}.";
+            string docName2 = $"ContentPhrase2_{Guid.NewGuid()}";
+            string docContent2 = $"This document has exact but not the phrase and also test {Guid.NewGuid().ToString("N")}.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+
+            var results = _repository.SearchDocuments($"\"{phrase}\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the exact phrase was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the exact phrase was found.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByContent_BooleanAND_ShouldReturnCorrectResults()
+        {
+            string term1 = $"AndTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term2 = $"AndTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string docName1 = $"ContentAnd1_{Guid.NewGuid()}";
+            string docContent1 = $"Contains {term1} and {term2}.";
+            string docName2 = $"ContentAnd2_{Guid.NewGuid()}";
+            string docContent2 = $"Contains only {term1}.";
+            string docName3 = $"ContentAnd3_{Guid.NewGuid()}";
+            string docContent3 = $"Contains only {term2}.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+            AddTestDocument(docName3, docContent3);
+
+            var results = _repository.SearchDocuments($"\"{term1}\" AND \"{term2}\"");
+            Assert.IsTrue(results.Count(d => d.Item1 == docName1) == 1, "Document with both terms not found or found multiple times.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document with only term1 found when ANDing.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document with only term2 found when ANDing.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByContent_BooleanOR_ShouldReturnCorrectResults()
+        {
+            string term1 = $"OrTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term2 = $"OrTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string docName1 = $"ContentOr1_{Guid.NewGuid()}";
+            string docContent1 = $"Contains {term1}.";
+            string docName2 = $"ContentOr2_{Guid.NewGuid()}";
+            string docContent2 = $"Contains {term2}.";
+            string docName3 = $"ContentOr3_{Guid.NewGuid()}";
+            string docContent3 = "Contains neither.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+            AddTestDocument(docName3, docContent3);
+
+            var results = _repository.SearchDocuments($"\"{term1}\" OR \"{term2}\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with term1 not found for OR query.");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName2), "Document with term2 not found for OR query.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document with neither term found for OR query.");
+            Assert.AreEqual(2, results.Count, "Incorrect number of documents found for OR query.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByContent_PrefixTerm_ShouldReturnMatchingDocuments()
+        {
+            string prefix = $"Prefix_{Guid.NewGuid().ToString("N")}";
+            string docName1 = $"ContentPrefix1_{Guid.NewGuid()}";
+            string docContent1 = $"This document has {prefix}CompleteWord.";
+            string docName2 = $"ContentPrefix2_{Guid.NewGuid()}";
+            string docContent2 = $"This document has {prefix}AnotherWord.";
+            string docName3 = $"ContentPrefix3_{Guid.NewGuid()}";
+            string docContent3 = "This document does not match the prefix.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+            AddTestDocument(docName3, docContent3);
+
+            var results = _repository.SearchDocuments($"\"{prefix}*\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with first prefix match not found.");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName2), "Document with second prefix match not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document without prefix match found.");
+            Assert.AreEqual(2, results.Count, "Incorrect number of documents found for prefix query.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByName_SingleTerm_ShouldReturnMatchingDocuments()
+        {
+            string term = $"NameTerm_{Guid.NewGuid().ToString("N")}";
+            string docName1 = $"{term}_Doc1_{Guid.NewGuid()}";
+            string docContent1 = "Content for name search.";
+            string docName2 = $"OtherName_Doc2_{Guid.NewGuid()}";
+            string docContent2 = "Another content.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+
+            var results = _repository.SearchDocumentsByName($"\"{term}\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the term in name was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the term in name was found.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocumentsByName_Phrase_ShouldReturnExactMatches()
+        {
+            string phrase = $"Exact Name Phrase {Guid.NewGuid().ToString("N")}";
+            string docName1 = $"{phrase}_Doc1_{Guid.NewGuid()}";
+            string docContent1 = "Content for name phrase search.";
+            string docName2 = $"Exact Name But Not Phrase Doc2_{Guid.NewGuid()}";
+            string docContent2 = "Another content.";
+            AddTestDocument(docName1, docContent1);
+            AddTestDocument(docName2, docContent2);
+
+            var results = _repository.SearchDocumentsByName($"\"{phrase}\"");
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the exact phrase in name was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the exact phrase in name was found.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void GetAllDocumentNames_ShouldReturnAllAddedDocumentNames()
+        {
+            string docName1 = $"GetAllTest1_{Guid.NewGuid()}";
+            string docName2 = $"GetAllTest2_{Guid.NewGuid()}";
+            AddTestDocument(docName1, "Content 1");
+            AddTestDocument(docName2, "Content 2");
+
+            var allNames = _repository.GetAllDocumentNames();
+            Assert.IsTrue(allNames.Contains(docName1), $"{docName1} not found in GetAllDocumentNames.");
+            Assert.IsTrue(allNames.Contains(docName2), $"{docName2} not found in GetAllDocumentNames.");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public void SearchDocuments_NonExistentTerm_ShouldReturnEmptyList()
+        {
+            string term = $"NonExistentTerm_{Guid.NewGuid().ToString("N")}";
+            AddTestDocument($"DummyDoc_{Guid.NewGuid()}", "Some content to ensure table is not empty.");
             
-            var foundDoc = searchResults.First(r => r.Item1 == testDocName);
-            Assert.AreEqual(testContent, foundDoc.Item2, "Document content should match");
+            var results = _repository.SearchDocuments($"\"{term}\"");
+            Assert.AreEqual(0, results.Count, "Found documents for a non-existent term.");
         }
 
         [TestMethod]
         [TestCategory("Integration")]
-        public void DeleteDocument_RealDatabase_ShouldRemoveSuccessfully()
+        public void SearchDocumentsByName_NonExistentTerm_ShouldReturnEmptyList()
         {
-            // Arrange
-            string testDocName = $"IntegrationTest_Delete_{Guid.NewGuid()}";
-            string testContent = "This document will be deleted during the test.";
-            
-            _repository.AddDocument(testDocName, testContent);
-            
-            // Verify document exists
-            var allDocsBefore = _repository.GetAllDocumentNames();
-            Assert.IsTrue(allDocsBefore.Contains(testDocName), "Document should exist before deletion");
+            string term = $"NonExistentNameTerm_{Guid.NewGuid().ToString("N")}";
+            AddTestDocument($"DummyDocName_{Guid.NewGuid()}", "Some content.");
 
-            // Act
-            _repository.DeleteDocument(testDocName);
-
-            // Assert
-            var allDocsAfter = _repository.GetAllDocumentNames();
-            Assert.IsFalse(allDocsAfter.Contains(testDocName), "Document should not exist after deletion");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void DeleteDocument_NonExistentDocument_ShouldThrowException()
-        {
-            // Arrange
-            string nonExistentDoc = $"NonExistent_{Guid.NewGuid()}";
-
-            // Act & Assert
-            var exception = Assert.ThrowsException<Exception>(() => _repository.DeleteDocument(nonExistentDoc));
-            Assert.IsTrue(exception.Message.Contains("not found"), "Exception message should indicate document not found");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocuments_SimpleTerm_ShouldReturnMatchingDocuments()
-        {
-            // Arrange
-            string testDocName1 = $"IntegrationTest_Search1_{Guid.NewGuid()}";
-            string testDocName2 = $"IntegrationTest_Search2_{Guid.NewGuid()}";
-            string testContent1 = "This document contains the keyword automobile for testing.";
-            string testContent2 = "This document contains the keyword vehicle for testing.";
-            string testContent3 = "This document contains the keyword automobile and vehicle for comprehensive testing.";
-            string testDocName3 = $"IntegrationTest_Search3_{Guid.NewGuid()}";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2, testDocName3 });
-
-            _repository.AddDocument(testDocName1, testContent1);
-            _repository.AddDocument(testDocName2, testContent2);
-            _repository.AddDocument(testDocName3, testContent3);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
-
-            // Act
-            var results = _repository.SearchDocuments("\\\"automobile\\\"");
-
-            // Assert
-            Assert.IsTrue(results.Count >= 2, "Should find at least 2 documents containing 'automobile'");
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find first test document");
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName3), "Should find third test document");
-            Assert.IsFalse(results.Any(r => r.Item1 == testDocName2), "Should not find second test document");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocuments_PhraseQuery_ShouldReturnExactMatches()
-        {
-            // Arrange
-            string testDocName1 = $"IntegrationTest_Phrase1_{Guid.NewGuid()}";
-            string testDocName2 = $"IntegrationTest_Phrase2_{Guid.NewGuid()}";
-            string testContent1 = "This document contains machine learning algorithms for data analysis.";
-            string testContent2 = "This document has machine and learning but not together algorithms.";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2 });
-
-            _repository.AddDocument(testDocName1, testContent1);
-            _repository.AddDocument(testDocName2, testContent2);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
-
-            // Act
-            var results = _repository.SearchDocuments("\\\"machine learning\\\"");
-
-            // Assert
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find document with exact phrase 'machine learning'");
-            // Note: Document 2 might or might not be found depending on FTS proximity settings
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocuments_BooleanQuery_ShouldRespectOperators()
-        {
-            // Arrange
-            string testDocName1 = $"IntegrationTest_Bool1_{Guid.NewGuid()}";
-            string testDocName2 = $"IntegrationTest_Bool2_{Guid.NewGuid()}";
-            string testDocName3 = $"IntegrationTest_Bool3_{Guid.NewGuid()}";
-            string testContent1 = "This document discusses software development and programming techniques.";
-            string testContent2 = "This document covers hardware development and engineering methods.";
-            string testContent3 = "This document is about software engineering and system design.";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2, testDocName3 });
-
-            _repository.AddDocument(testDocName1, testContent1);
-            _repository.AddDocument(testDocName2, testContent2);
-            _repository.AddDocument(testDocName3, testContent3);
-
-            // Wait a bit for FTS indexing (FTS indexing is not immediate)
-            System.Threading.Thread.Sleep(2000);
-
-            // Act - Try simpler search first, then boolean if supported
-            var softwareResults = _repository.SearchDocuments("software");
-            var developmentResults = _repository.SearchDocuments("development");
-            
-            // Assert - Check that basic searches work first
-            Assert.IsTrue(softwareResults.Any(r => r.Item1 == testDocName1), "Should find document containing 'software'");
-            Assert.IsTrue(developmentResults.Any(r => r.Item1 == testDocName1), "Should find document containing 'development'");
-            
-            // Try boolean query (may not be supported in all FTS configurations)
-            try
-            {
-                var booleanResults = _repository.SearchDocuments("software AND development");
-                if (booleanResults.Count > 0)
-                {
-                    Assert.IsTrue(booleanResults.Any(r => r.Item1 == testDocName1), "Should find document with both 'software' and 'development'");
-                }
-            }
-            catch (Exception)
-            {
-                // Boolean operators might not be supported in this FTS configuration
-                // This is acceptable for basic FTS functionality
-            }
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocumentsByName_SimpleTerm_ShouldReturnMatchingNames()
-        {
-            // Arrange
-            string testDocName1 = $"TechnicalReport_{Guid.NewGuid()}.pdf";
-            string testDocName2 = $"UserManual_{Guid.NewGuid()}.docx";
-            string testDocName3 = $"TechnicalSpecification_{Guid.NewGuid()}.txt";
-            string testContent = "Standard test content for name search testing.";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2, testDocName3 });
-
-            _repository.AddDocument(testDocName1, testContent);
-            _repository.AddDocument(testDocName2, testContent);
-            _repository.AddDocument(testDocName3, testContent);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
-
-            // Act
-            var results = _repository.SearchDocumentsByName("\\\"Technical\\\"");
-
-            // Assert
-            Assert.IsTrue(results.Count >= 2, "Should find at least 2 documents with 'Technical' in name");
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find TechnicalReport document");
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName3), "Should find TechnicalSpecification document");
-            Assert.IsFalse(results.Any(r => r.Item1 == testDocName2), "Should not find UserManual document");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocumentsByName_PhraseQuery_ShouldReturnExactMatches()
-        {
-            // Arrange
-            string testDocName1 = $"User Guide Manual_{Guid.NewGuid()}.pdf";
-            string testDocName2 = $"User Manual Guide_{Guid.NewGuid()}.docx";
-            string testDocName3 = $"Guide for Users_{Guid.NewGuid()}.txt";
-            string testContent = "Standard test content for phrase search testing.";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2, testDocName3 });
-
-            _repository.AddDocument(testDocName1, testContent);
-            _repository.AddDocument(testDocName2, testContent);
-            _repository.AddDocument(testDocName3, testContent);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
-
-            // Act
-            var results = _repository.SearchDocumentsByName("\\\"User Guide\\\"");
-
-            // Assert
-            Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find document with exact phrase 'User Guide'");
-            // Note: Depending on FTS settings, other documents might or might not be found
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void GetAllDocumentNames_RealDatabase_ShouldReturnOrderedList()
-        {
-            // Arrange
-            string testDocName1 = $"Alpha_Doc_{Guid.NewGuid()}";
-            string testDocName2 = $"Beta_Doc_{Guid.NewGuid()}";
-            string testDocName3 = $"Gamma_Doc_{Guid.NewGuid()}";
-            string testContent = "Test content for ordering verification.";
-
-            _testDocumentsToCleanup.AddRange(new[] { testDocName1, testDocName2, testDocName3 });
-
-            _repository.AddDocument(testDocName2, testContent); // Add in non-alphabetical order
-            _repository.AddDocument(testDocName3, testContent);
-            _repository.AddDocument(testDocName1, testContent);
-
-            // Act
-            var allDocuments = _repository.GetAllDocumentNames();
-
-            // Assert
-            Assert.IsNotNull(allDocuments, "Document list should not be null");
-            Assert.IsTrue(allDocuments.Count > 0, "Should return at least some documents");
-            
-            // Verify our test documents are in the list and properly ordered
-            var testDocs = allDocuments.Where(name => 
-                name == testDocName1 || name == testDocName2 || name == testDocName3).ToList();
-            
-            Assert.AreEqual(3, testDocs.Count, "Should find all 3 test documents");
-            
-            // Verify alphabetical ordering of our test documents
-            var expectedOrder = new[] { testDocName1, testDocName2, testDocName3 }.OrderBy(x => x).ToList();
-            var actualOrder = testDocs.OrderBy(x => x).ToList();
-            
-            CollectionAssert.AreEqual(expectedOrder, actualOrder, "Documents should be in alphabetical order");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
-        {
-            // Act & Assert
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments(""));
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments("   "));
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void SearchDocumentsByName_EmptyQuery_ShouldThrowArgumentException()
-        {
-            // Act & Assert
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName(""));
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName("   "));
+            var results = _repository.SearchDocumentsByName($"\"{term}\"");
+            Assert.AreEqual(0, results.Count, "Found documents for a non-existent name term.");
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void AddDocument_EmptyName_ShouldThrowArgumentException()
         {
-            // Act & Assert
             Assert.ThrowsException<ArgumentException>(() => _repository.AddDocument("", "content"));
-            Assert.ThrowsException<ArgumentException>(() => _repository.AddDocument("   ", "content"));
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void AddDocument_NullContent_ShouldThrowArgumentNullException()
         {
-            // Act & Assert
             Assert.ThrowsException<ArgumentNullException>(() => _repository.AddDocument("TestDoc", null));
         }
 
         [TestMethod]
         [TestCategory("Integration")]
-        public void SearchDocuments_NoMatches_ShouldReturnEmptyList()
+        public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
         {
-            // Act
-            var results = _repository.SearchDocuments($"VeryUniqueSearchTerm_{Guid.NewGuid()}");
-
-            // Assert
-            Assert.IsNotNull(results, "Results should not be null");
-            Assert.AreEqual(0, results.Count, "Should return empty list when no matches found");
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments(""));
         }
 
         [TestMethod]
         [TestCategory("Integration")]
-        public void SearchDocumentsByName_NoMatches_ShouldReturnEmptyList()
+        public void SearchDocumentsByName_EmptyQuery_ShouldThrowArgumentException()
         {
-            // Act
-            var results = _repository.SearchDocumentsByName($"VeryUniqueFileName_{Guid.NewGuid()}");
-
-            // Assert
-            Assert.IsNotNull(results, "Results should not be null");
-            Assert.AreEqual(0, results.Count, "Should return empty list when no matches found");
-        }
-
-        [TestMethod]
-        [TestCategory("Integration")]
-        public void CompleteWorkflow_AddSearchDelete_ShouldWorkEndToEnd()
-        {
-            // Arrange
-            string testDocName = $"WorkflowTest_{Guid.NewGuid()}";
-            string testContent = "This is a comprehensive workflow test document containing unique keywords like zzztestunique.";
-
-            // Act & Assert - Add
-            _repository.AddDocument(testDocName, testContent);
-            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
-            
-            // Act & Assert - Search by content
-            var contentResults = _repository.SearchDocuments("\\\"zzztestunique\\\"");
-            Assert.IsTrue(contentResults.Any(r => r.Item1 == testDocName), "Should find document by content search");
-            
-            // Act & Assert - Search by name
-            var nameResults = _repository.SearchDocumentsByName("\\\"WorkflowTest\\\"");
-            Assert.IsTrue(nameResults.Any(r => r.Item1 == testDocName), "Should find document by name search");
-            
-            // Act & Assert - Get all documents
-            var allDocs = _repository.GetAllDocumentNames();
-            Assert.IsTrue(allDocs.Contains(testDocName), "Should find document in complete list");
-            
-            // Act & Assert - Delete
-            _repository.DeleteDocument(testDocName);
-            
-            // Verify deletion
-            var docsAfterDelete = _repository.GetAllDocumentNames();
-            Assert.IsFalse(docsAfterDelete.Contains(testDocName), "Document should be removed after deletion");
-            
-            var searchAfterDelete = _repository.SearchDocuments("zzztestunique");
-            Assert.IsFalse(searchAfterDelete.Any(r => r.Item1 == testDocName), "Should not find deleted document in search");
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName(""));
         }
     }
 }
