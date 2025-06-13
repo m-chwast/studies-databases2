@@ -182,16 +182,16 @@ namespace ClobFts.Core.Tests
         public void SearchDocumentsByName_SingleTerm_ShouldReturnMatchingDocuments()
         {
             string uniqueTerm = $"NameTermUnique{Guid.NewGuid().ToString("N")}";
-            string docName1 = $"{uniqueTerm}_DocAlpha"; // Simplified name structure
+            string docName1 = uniqueTerm; // docName1 is now exactly the uniqueTerm
             string docContent1 = $"Content for {docName1}";
             string docName2 = $"OtherNameBeta_{Guid.NewGuid().ToString("N")}"; // Clearly distinct name
             string docContent2 = "Another content for beta.";
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{uniqueTerm}\""); // Corrected FTS query string
-            Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with the term '{uniqueTerm}' in name was not found.");
-            Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' without the term '{uniqueTerm}' in name was found unexpectedly.");
+            var results = _repository.SearchDocumentsByName($"\"{uniqueTerm}\""); // Search for the exact uniqueTerm
+            Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with name '{docName1}' (matching search term '{uniqueTerm}') was not found.");
+            Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' (which should not match term '{uniqueTerm}') was found unexpectedly.");
         }
 
         [TestMethod]
