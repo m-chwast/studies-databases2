@@ -231,7 +231,7 @@ namespace ClobFts.Core.Tests
         public void SearchDocuments_NonExistentTerm_ShouldReturnEmptyList()
         {
             string term = $"NonExistentTerm_{Guid.NewGuid().ToString("N")}";
-            AddTestDocument($"DummyDoc_{Guid.NewGuid()}\", "Some content to ensure table is not empty.");
+            AddTestDocument($"DummyDoc_{Guid.NewGuid()}", "Some content to ensure table is not empty.");
             
             var results = _repository!.SearchDocuments($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.AreEqual(0, results.Count, "Found documents for a non-existent term.");
@@ -242,7 +242,7 @@ namespace ClobFts.Core.Tests
         public void SearchDocumentsByName_NonExistentTerm_ShouldReturnEmptyList()
         {
             string term = $"NonExistentNameTerm_{Guid.NewGuid().ToString("N")}";
-            AddTestDocument($"DummyDocName_{Guid.NewGuid()}\", "Some content.");
+            AddTestDocument($"DummyDocName_{Guid.NewGuid()}", "Some content.");
 
             var results = _repository!.SearchDocumentsByName($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.AreEqual(0, results.Count, "Found documents for a non-existent name term.");
