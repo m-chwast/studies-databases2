@@ -241,5 +241,116 @@ namespace ClobFts.Core.Tests
             Assert.AreEqual("@FtsQuery", param.ParameterName);
             Assert.AreEqual(expectedFtsQuery, param.Value);
         }
+
+        // Tests for SearchDocumentsByName
+        [TestMethod]
+        public void SearchDocumentsByName_ValidQuery_ShouldExecuteCorrectSqlAndReturnResults()
+        {
+            // Arrange
+            string nameQuery = "Test";
+            string expectedSqlParam = "%Test%";
+            var expectedResults = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("TestDoc1.txt", "Content of TestDoc1"),
+                new Tuple<string, string>("AnotherTest.doc", "Content of AnotherTest")
+            };
+
+            _mockDataReader.SetupSequence(r => r.Read())
+                       .Returns(true)
+                       .Returns(true)
+                       .Returns(false);
+            _mockDataReader.Setup(r => r.GetString(0))
+                       .Returns(expectedResults[0].Item1)
+                       .Callback(() => _mockDataReader.Setup(r => r.GetString(0)).Returns(expectedResults[1].Item1));
+            _mockDataReader.Setup(r => r.GetString(1))
+                       .Returns(expectedResults[0].Item2)
+                       .Callback(() => _mockDataReader.Setup(r => r.GetString(1)).Returns(expectedResults[1].Item2));
+
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
+            _parameterList.Clear(); // Clear params from previous tests if any
+
+            // Act
+            var results = _repository.SearchDocumentsByName(nameQuery);
+
+            // Assert
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+            _mockCommand.Protected().Verify("ExecuteDbDataReader", Times.Once(), ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default));
+            
+            Assert.AreEqual(1, _parameterList.Count);
+            var param = _parameterList[0];
+            Assert.IsNotNull(param);
+            Assert.AreEqual("@DocumentNameQuery", param.ParameterName);
+            Assert.AreEqual(expectedSqlParam, param.Value);
+
+            Assert.IsNotNull(results);
+            Assert.AreEqual(expectedResults.Count, results.Count);
+            for (int i = 0; i < expectedResults.Count; i++)
+            {
+                Assert.AreEqual(expectedResults[i].Item1, results[i].Item1);
+                Assert.AreEqual(expectedResults[i].Item2, results[i].Item2);
+            }
+        }
+
+        [TestMethod]
+        public void SearchDocumentsByName_EmptyQuery_ShouldThrowArgumentException()
+        {
+            // Arrange
+            string nameQuery = string.Empty;
+
+            // Act & Assert
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName(nameQuery));
+        }
+
+        [TestMethod]
+        public void SearchDocumentsByName_WhitespaceQuery_ShouldThrowArgumentException()
+        {
+            // Arrange
+            string nameQuery = "   ";
+
+            // Act & Assert
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName(nameQuery));
+        }
+
+        [TestMethod]
+        public void SearchDocumentsByName_NoResults_ShouldReturnEmptyList()
+        {
+            // Arrange
+            string nameQuery = "NonExistentName";
+            _mockDataReader.Setup(r => r.Read()).Returns(false);
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
+            _parameterList.Clear();
+
+            // Act
+            var results = _repository.SearchDocumentsByName(nameQuery);
+
+            // Assert
+            Assert.IsNotNull(results);
+            Assert.AreEqual(0, results.Count);
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+        }
+
+        [TestMethod]
+        public void SearchDocumentsByName_QueryWithLikeWildcards_ShouldEscapeWildcardsInSqlQuery()
+        {
+            // Arrange
+            string nameQuery = "Test%Doc_Name"; // Contains % and _
+            // Expected escaped query for LIKE: %Test[%]Doc[_]Name%
+            string expectedSqlParam = "%Test[%]Doc[_]Name%"; 
+
+            _mockDataReader.Setup(r => r.Read()).Returns(false);
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
+            _parameterList.Clear();
+
+            // Act
+            _repository.SearchDocumentsByName(nameQuery);
+
+            // Assert
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+            Assert.AreEqual(1, _parameterList.Count);
+            var param = _parameterList[0];
+            Assert.IsNotNull(param);
+            Assert.AreEqual("@DocumentNameQuery", param.ParameterName);
+            Assert.AreEqual(expectedSqlParam, param.Value);
+        }
     }
 }

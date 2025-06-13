@@ -22,8 +22,9 @@ namespace ClobFts.App
                 Console.WriteLine("\nWybierz opcję:");
                 Console.WriteLine("1. Dodaj dokument");
                 Console.WriteLine("2. Usuń dokument");
-                Console.WriteLine("3. Wyszukaj w dokumentach");
-                Console.WriteLine("4. Wyjdź");
+                Console.WriteLine("3. Wyszukaj w dokumentach (po treści)");
+                Console.WriteLine("4. Wyszukaj dokumenty (po nazwie)"); // New option
+                Console.WriteLine("5. Wyjdź"); // Exit option shifted
                 Console.Write("Twój wybór: ");
 
                 string choice = Console.ReadLine() ?? "";
@@ -39,9 +40,12 @@ namespace ClobFts.App
                             DeleteDocumentUI();
                             break;
                         case "3":
-                            SearchDocumentsUI();
+                            SearchDocumentsByContentUI(); // Renamed for clarity
                             break;
-                        case "4":
+                        case "4": // New case
+                            SearchDocumentsByNameUI();
+                            break;
+                        case "5": // Exit case shifted
                             keepRunning = false;
                             break;
                         default:
@@ -94,9 +98,9 @@ namespace ClobFts.App
             Console.WriteLine($"Dokument '{name}' usunięty pomyślnie.");
         }
 
-        private static void SearchDocumentsUI()
+        private static void SearchDocumentsByContentUI() // Renamed for clarity
         {
-            Console.Write("Podaj frazę do wyszukania: ");
+            Console.Write("Podaj frazę do wyszukania w treści: ");
             string? query = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -118,6 +122,33 @@ namespace ClobFts.App
             else
             {
                 Console.WriteLine("Nie znaleziono dokumentów pasujących do zapytania.");
+            }
+        }
+
+        private static void SearchDocumentsByNameUI() // New UI method
+        {
+            Console.Write("Podaj fragment nazwy dokumentu do wyszukania: ");
+            string? nameQuery = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(nameQuery))
+            {
+                Console.WriteLine("Fragment nazwy do wyszukania nie może być pusty.");
+                return;
+            }
+            var results = _repository.SearchDocumentsByName(nameQuery);
+
+            if (results.Any())
+            {
+                Console.WriteLine("Znalezione dokumenty (pasujące nazwą):");
+                foreach (var doc in results)
+                {
+                    Console.WriteLine($"- {doc.Item1}");
+                    Console.WriteLine($"  Treść: {doc.Item2}");
+                    Console.WriteLine("---");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Nie znaleziono dokumentów o pasującej nazwie.");
             }
         }
     }

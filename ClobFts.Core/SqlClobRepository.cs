@@ -124,5 +124,42 @@ namespace ClobFts.Core
             }
             return foundDocuments;
         }
+
+        public List<Tuple<string, string>> SearchDocumentsByName(string documentNameQuery)
+        {
+            if (string.IsNullOrWhiteSpace(documentNameQuery))
+                throw new ArgumentException("Document name query cannot be empty.", nameof(documentNameQuery));
+
+            var foundDocuments = new List<Tuple<string, string>>();
+            // Use LIKE for partial matching of document names
+            // Corrected escaping for LIKE wildcards, removing the erroneous space for '%'
+            string sqlQuery = $"%{documentNameQuery.Replace("%", "[%]").Replace("_", "[_]") }%"; 
+
+            using (DbConnection connection = _connectionFactory())
+            {
+                connection.Open();
+                string sql = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery";
+                using (DbCommand command = connection.CreateCommand())
+                {
+                    command.CommandText = sql;
+
+                    DbParameter queryParam = command.CreateParameter();
+                    queryParam.ParameterName = "@DocumentNameQuery";
+                    queryParam.Value = sqlQuery;
+                    command.Parameters.Add(queryParam);
+
+                    using (DbDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string documentName = reader.GetString(0);
+                            string content = reader.GetString(1);
+                            foundDocuments.Add(new Tuple<string, string>(documentName, content));
+                        }
+                    }
+                }
+            }
+            return foundDocuments;
+        }
     }
 }
