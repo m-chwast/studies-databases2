@@ -108,9 +108,11 @@ namespace ClobFts.App
             if (results.Any())
             {
                 Console.WriteLine("Znalezione dokumenty:");
-                foreach (var docName in results)
+                foreach (var doc in results)
                 {
-                    Console.WriteLine($"- {docName}");
+                    Console.WriteLine($"- {doc.Item1}");
+                    Console.WriteLine($"  Treść: {doc.Item2}"); // Wyświetl pełną treść
+                    Console.WriteLine("---");
                 }
             }
             else

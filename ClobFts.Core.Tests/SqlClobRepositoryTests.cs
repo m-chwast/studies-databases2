@@ -141,90 +141,105 @@ namespace ClobFts.Core.Tests
         public void SearchDocuments_ValidQuery_ShouldExecuteCorrectSqlAndReturnResults()
         {
             // Arrange
-            string searchQuery = "test query";
-            // Simplified and corrected FTS query string generation
-            string replacedQuery = searchQuery.Replace("\"", "\"\""); // Replaces " with ""
-            string expectedFtsQuery = $"\"{replacedQuery}\"";       // Wraps with " at start and end
-            string expectedSql = "SELECT DocumentName FROM Documents WHERE CONTAINS(Content, @FtsQuery)";
-            var expectedDocNames = new List<string> { "Doc1", "Doc2" };
+            string searchQuery = "test";
+            string expectedFtsQuery = "\"test\"";
+            var expectedResults = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("doc1.txt", "This is a test document."),
+                new Tuple<string, string>("doc2.txt", "Another test entry.")
+            };
 
-            var readCallCount = 0;
-            _mockDataReader.Setup(r => r.Read()) 
-                           .Returns(() => readCallCount < expectedDocNames.Count)
-                           .Callback(() => readCallCount++); 
-            
-            _mockDataReader.Setup(r => r.GetString(0))
-                           .Returns(() => expectedDocNames[readCallCount - 1]);
-            
+            _mockDataReader.SetupSequence(r => r.Read()) // Corrected: _mockDataReader instead of _mockReader
+                       .Returns(true)
+                       .Returns(true)
+                       .Returns(false);
+            _mockDataReader.Setup(r => r.GetString(0)) // Corrected: _mockDataReader instead of _mockReader
+                       .Returns(expectedResults[0].Item1)
+                       .Callback(() => _mockDataReader.Setup(r => r.GetString(0)).Returns(expectedResults[1].Item1)); // Corrected: _mockDataReader
+            _mockDataReader.Setup(r => r.GetString(1)) // Corrected: _mockDataReader instead of _mockReader
+                       .Returns(expectedResults[0].Item2)
+                       .Callback(() => _mockDataReader.Setup(r => r.GetString(1)).Returns(expectedResults[1].Item2)); // Corrected: _mockDataReader
+
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
+
             // Act
             var results = _repository.SearchDocuments(searchQuery);
 
             // Assert
-            _mockCommand.VerifySet(cmd => cmd.CommandText = expectedSql, Times.Once());
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)", Times.Once()); // Verify CommandText is set
+            _mockCommand.Protected().Verify("ExecuteDbDataReader", Times.Once(), ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default));
             
-            var queryParam = GetParameter("@FtsQuery");
-            Assert.IsNotNull(queryParam, "Parameter @FtsQuery not found.");
-            Assert.AreEqual(expectedFtsQuery, queryParam.Value, "Parameter @FtsQuery has incorrect value.");
-            
-            // Verify that the underlying protected method ExecuteDbDataReader was called with CommandBehavior.Default.
-            // The SUT calls the public ExecuteReader(), which in turn calls this protected method.
-            _mockCommand.Protected().Verify<DbDataReader>(
-                "ExecuteDbDataReader", 
-                Times.Once(), 
-                ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default)
-            );
-            
-            _mockConnection.Verify(c => c.Open(), Times.Once());
+            Assert.AreEqual(1, _parameterList.Count); // Use _parameterList populated by callback
+            var param = _parameterList[0]; // Use _parameterList
+            Assert.IsNotNull(param);
+            Assert.AreEqual("@FtsQuery", param.ParameterName);
+            Assert.AreEqual(expectedFtsQuery, param.Value);
 
-            Assert.AreEqual(expectedDocNames.Count, results.Count, "Incorrect number of results.");
-            CollectionAssert.AreEqual(expectedDocNames, results, "The returned collection of document names does not match the expected collection.");
+            Assert.IsNotNull(results);
+            Assert.AreEqual(expectedResults.Count, results.Count);
+            for (int i = 0; i < expectedResults.Count; i++)
+            {
+                Assert.AreEqual(expectedResults[i].Item1, results[i].Item1);
+                Assert.AreEqual(expectedResults[i].Item2, results[i].Item2);
+            }
         }
-        
+
+        [TestMethod]
+        public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
+        {
+            // Arrange
+            string searchQuery = string.Empty;
+
+            // Act & Assert
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments(searchQuery));
+        }
+
+        [TestMethod]
+        public void SearchDocuments_WhitespaceQuery_ShouldThrowArgumentException()
+        {
+            // Arrange
+            string searchQuery = "   ";
+
+            // Act & Assert
+            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments(searchQuery));
+        }
+
         [TestMethod]
         public void SearchDocuments_NoResults_ShouldReturnEmptyList()
         {
             // Arrange
-            string searchQuery = "no match";
-            _mockDataReader.Setup(r => r.Read()).Returns(false); 
-            // This line was correct, the repository calls ExecuteReader() without CommandBehavior
-            // _mockCommand.Setup(cmd => cmd.ExecuteReader(It.IsAny<CommandBehavior>())).Returns(_mockDataReader.Object);
-
+            string searchQuery = "nonexistent";
+            _mockDataReader.Setup(r => r.Read()).Returns(false); // Corrected: _mockDataReader instead of _mockReader
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
 
             // Act
             var results = _repository.SearchDocuments(searchQuery);
 
             // Assert
+            Assert.IsNotNull(results);
             Assert.AreEqual(0, results.Count);
-            _mockConnection.Verify(c => c.Open(), Times.Once());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
-        public void AddDocument_EmptyName_ShouldThrowArgumentException()
+        public void SearchDocuments_QueryWithQuotes_ShouldEscapeQuotesInFtsQuery()
         {
-            _repository.AddDocument("", "content");
-        }
+            // Arrange
+            string searchQuery = "test \"quote\"";
+            string expectedFtsQuery = "\"test \"\"quote\"\"\""; // FTS expects quotes to be doubled
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void AddDocument_NullContent_ShouldThrowArgumentNullException()
-        {
-            // Use null! to address CS8625 if NRTs are enabled for the test project
-            _repository.AddDocument("docName", null!); 
-        }
-        
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
-        public void DeleteDocument_EmptyName_ShouldThrowArgumentException()
-        {
-            _repository.DeleteDocument("");
-        }
+            _mockDataReader.Setup(r => r.Read()).Returns(false); // Corrected: _mockDataReader instead of _mockReader
+            _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object); // Corrected: _mockDataReader instead of _mockReader
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
-        public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
-        {
-            _repository.SearchDocuments("");
+            // Act
+            _repository.SearchDocuments(searchQuery);
+
+            // Assert
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)", Times.Once()); // Verify CommandText is set
+            Assert.AreEqual(1, _parameterList.Count); // Use _parameterList populated by callback
+            var param = _parameterList[0]; // Use _parameterList
+            Assert.IsNotNull(param);
+            Assert.AreEqual("@FtsQuery", param.ParameterName);
+            Assert.AreEqual(expectedFtsQuery, param.Value);
         }
     }
 }

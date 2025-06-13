@@ -87,18 +87,19 @@ namespace ClobFts.Core
             }
         }
 
-        public List<string> SearchDocuments(string searchQuery)
+        public List<Tuple<string, string>> SearchDocuments(string searchQuery)
         {
             if (string.IsNullOrWhiteSpace(searchQuery))
                 throw new ArgumentException("Search query cannot be empty.", nameof(searchQuery));
 
-            var foundDocumentNames = new List<string>();
+            var foundDocuments = new List<Tuple<string, string>>();
             string ftsQuery = $"\"{searchQuery.Replace("\"", "\"\"")}\""; // Ensure FTS query is correctly formatted
 
             using (DbConnection connection = _connectionFactory())
             {
                 connection.Open();
-                string sql = "SELECT DocumentName FROM Documents WHERE CONTAINS(Content, @FtsQuery)";
+                // Select both DocumentName and Content
+                string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)";
                 using (DbCommand command = connection.CreateCommand())
                 {
                     command.CommandText = sql;
@@ -113,12 +114,15 @@ namespace ClobFts.Core
                         while (reader.Read())
                         {
                             // Assuming DocumentName is the first column (index 0)
-                            foundDocumentNames.Add(reader.GetString(0));
+                            // and Content is the second column (index 1)
+                            string documentName = reader.GetString(0);
+                            string content = reader.GetString(1);
+                            foundDocuments.Add(new Tuple<string, string>(documentName, content));
                         }
                     }
                 }
             }
-            return foundDocumentNames;
+            return foundDocuments;
         }
     }
 }
