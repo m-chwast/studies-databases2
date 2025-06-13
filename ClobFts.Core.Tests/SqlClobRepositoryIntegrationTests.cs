@@ -54,9 +54,10 @@ namespace ClobFts.Core.Tests
 
             // Act
             _repository.AddDocument(testDocName, testContent);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
 
             // Assert - Verify document exists by searching for it
-            var searchResults = _repository.SearchDocuments("integration testing");
+            var searchResults = _repository.SearchDocuments("\\\"integration\\\" AND \\\"testing\\\"");
             Assert.IsTrue(searchResults.Any(r => r.Item1 == testDocName), "Document should be found in search results");
             
             var foundDoc = searchResults.First(r => r.Item1 == testDocName);
@@ -114,9 +115,10 @@ namespace ClobFts.Core.Tests
             _repository.AddDocument(testDocName1, testContent1);
             _repository.AddDocument(testDocName2, testContent2);
             _repository.AddDocument(testDocName3, testContent3);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
 
             // Act
-            var results = _repository.SearchDocuments("automobile");
+            var results = _repository.SearchDocuments("\\\"automobile\\\"");
 
             // Assert
             Assert.IsTrue(results.Count >= 2, "Should find at least 2 documents containing 'automobile'");
@@ -139,9 +141,10 @@ namespace ClobFts.Core.Tests
 
             _repository.AddDocument(testDocName1, testContent1);
             _repository.AddDocument(testDocName2, testContent2);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
 
             // Act
-            var results = _repository.SearchDocuments("\"machine learning\"");
+            var results = _repository.SearchDocuments("\\\"machine learning\\\"");
 
             // Assert
             Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find document with exact phrase 'machine learning'");
@@ -208,9 +211,10 @@ namespace ClobFts.Core.Tests
             _repository.AddDocument(testDocName1, testContent);
             _repository.AddDocument(testDocName2, testContent);
             _repository.AddDocument(testDocName3, testContent);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
 
             // Act
-            var results = _repository.SearchDocumentsByName("Technical");
+            var results = _repository.SearchDocumentsByName("\\\"Technical\\\"");
 
             // Assert
             Assert.IsTrue(results.Count >= 2, "Should find at least 2 documents with 'Technical' in name");
@@ -234,9 +238,10 @@ namespace ClobFts.Core.Tests
             _repository.AddDocument(testDocName1, testContent);
             _repository.AddDocument(testDocName2, testContent);
             _repository.AddDocument(testDocName3, testContent);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
 
             // Act
-            var results = _repository.SearchDocumentsByName("\"User Guide\"");
+            var results = _repository.SearchDocumentsByName("\\\"User Guide\\\"");
 
             // Assert
             Assert.IsTrue(results.Any(r => r.Item1 == testDocName1), "Should find document with exact phrase 'User Guide'");
@@ -348,13 +353,14 @@ namespace ClobFts.Core.Tests
 
             // Act & Assert - Add
             _repository.AddDocument(testDocName, testContent);
+            System.Threading.Thread.Sleep(2000); // Allow time for FTS indexing
             
             // Act & Assert - Search by content
-            var contentResults = _repository.SearchDocuments("zzztestunique");
+            var contentResults = _repository.SearchDocuments("\\\"zzztestunique\\\"");
             Assert.IsTrue(contentResults.Any(r => r.Item1 == testDocName), "Should find document by content search");
             
             // Act & Assert - Search by name
-            var nameResults = _repository.SearchDocumentsByName("WorkflowTest");
+            var nameResults = _repository.SearchDocumentsByName("\\\"WorkflowTest\\\"");
             Assert.IsTrue(nameResults.Any(r => r.Item1 == testDocName), "Should find document by name search");
             
             // Act & Assert - Get all documents
