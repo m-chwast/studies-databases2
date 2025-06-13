@@ -131,13 +131,8 @@ namespace ClobFts.Core
                 throw new ArgumentException("Document name query cannot be empty.", nameof(documentNameQuery));
 
             var foundDocuments = new List<Tuple<string, string>>();
-            // Using FTS for document name search. 
-            // The query needs to be formatted for CONTAINS, typically with double quotes for exact phrases or wildcards.
-            // For simple substring-like search, a wildcard can be used, e.g., "*query*"
-            // However, leading wildcards are often problematic or less efficient in FTS.
-            // A common approach for prefix search is "query*"
-            // For this example, let's assume we want to find names containing the query words.
-            string ftsQuery = $"\"{documentNameQuery.Replace("\"", "\"\"")}\""; // Removed trailing space inside quotes
+            // The documentNameQuery is now treated as a raw FTS query string.
+            string ftsQuery = documentNameQuery;
 
             using (DbConnection connection = _connectionFactory())
             {
@@ -149,8 +144,8 @@ namespace ClobFts.Core
                     command.CommandText = sql;
 
                     DbParameter queryParam = command.CreateParameter();
-                    queryParam.ParameterName = "@FtsQuery"; // Changed parameter name for clarity, though not strictly necessary if it was @DocumentNameQuery
-                    queryParam.Value = ftsQuery;
+                    queryParam.ParameterName = "@FtsQuery";
+                    queryParam.Value = ftsQuery; // Use the raw query string directly
                     command.Parameters.Add(queryParam);
 
                     using (DbDataReader reader = command.ExecuteReader())

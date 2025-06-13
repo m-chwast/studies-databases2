@@ -127,11 +127,11 @@ namespace ClobFts.App
 
         private static void SearchDocumentsByNameUI() // New UI method
         {
-            Console.Write("Podaj fragment nazwy dokumentu do wyszukania: ");
+            Console.Write("Podaj zapytanie FTS dla nazwy dokumentu (np. 'termin1 OR \"fraza druga\"'): "); // Updated prompt
             string? nameQuery = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(nameQuery))
             {
-                Console.WriteLine("Fragment nazwy do wyszukania nie może być pusty.");
+                Console.WriteLine("Zapytanie FTS dla nazwy nie może być puste."); // Updated message
                 return;
             }
             var results = _repository.SearchDocumentsByName(nameQuery);
