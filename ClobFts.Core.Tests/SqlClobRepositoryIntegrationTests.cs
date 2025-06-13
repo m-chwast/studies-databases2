@@ -11,8 +11,8 @@ namespace ClobFts.Core.Tests
     public class SqlClobRepositoryIntegrationTests
     {
         private const string TestConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
-        private SqlClobRepository _repository;
-        private List<string> _documentsToCleanup;
+        private SqlClobRepository? _repository;
+        private List<string>? _documentsToCleanup;
 
         [TestInitialize]
         public void TestInitialize()
@@ -37,28 +37,28 @@ namespace ClobFts.Core.Tests
                 }
             }
              // Ensure FTS changes from deletions are processed if any test failed mid-operation
-            Thread.Sleep(1000); // Adjusted sleep time for cleanup
+            Thread.Sleep(1000); // Adjusted sleep time for cleanup, was 500
         }
 
         private void AddTestDocument(string name, string content)
         {
-            _repository.AddDocument(name, content);
-            _documentsToCleanup.Add(name);
-            Thread.Sleep(2500); // Increased sleep time for FTS indexing consistency
+            _repository!.AddDocument(name, content); // Added null-forgiving operator
+            _documentsToCleanup!.Add(name); // Added null-forgiving operator
+            Thread.Sleep(2500); // Increased sleep time for FTS indexing consistency, was 500
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void AddDocument_AndVerifyRetrieval_ShouldSucceed()
         {
-            string docName = $"AddRetrieveTest_{Guid.NewGuid()}";
-            string docContent = "Content for add and retrieve test.";
+            string docName = $"TestDocName_{Guid.NewGuid()}";
+            string uniqueTermForContent = $"RetrievableUniqueWord_{Guid.NewGuid().ToString("N")}";
+            string docContent = $"Content for add and retrieve test, featuring {uniqueTermForContent}.";
             AddTestDocument(docName, docContent);
 
-            // Search for a part of the document name and a word from its content
-            // Ensuring the query is specific enough to target the added document.
-            var results = _repository.SearchDocuments($"\"AddRetrieveTest\" AND \"retrieve\""); 
-            Assert.IsTrue(results.Any(d => d.Item1 == docName && d.Item2 == docContent), "Document not found or content mismatch after add.");
+            // Search for the unique term that was definitely added to the content.
+            var results = _repository!.SearchDocuments($"\\\"{uniqueTermForContent}\\\""); 
+            Assert.IsTrue(results.Any(d => d.Item1 == docName && d.Item2 == docContent), $"Document not found or content mismatch after add. Searched for '{uniqueTermForContent}'. Found {results.Count} results.");
         }
 
         [TestMethod]
@@ -69,11 +69,11 @@ namespace ClobFts.Core.Tests
             string docContent = "Content for delete test.";
             AddTestDocument(docName, docContent);
 
-            _repository.DeleteDocument(docName);
-            _documentsToCleanup.Remove(docName); // Already deleted by test
+            _repository!.DeleteDocument(docName); // Added null-forgiving operator
+            _documentsToCleanup!.Remove(docName); // Already deleted by test // Added null-forgiving operator
             Thread.Sleep(2500); // Allow time for FTS indexing to reflect deletion
 
-            var results = _repository.SearchDocuments($"\"{docName.Split('_')[0]}\"");
+            var results = _repository!.SearchDocuments($"\\\"{docName.Split('_')[0]}\\\""); // Added null-forgiving operator
             Assert.IsFalse(results.Any(d => d.Item1 == docName), "Document found after deletion.");
         }
 
@@ -89,7 +89,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocuments($"\"{term}\"");
+            var results = _repository!.SearchDocuments($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the term was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the term was found.");
         }
@@ -106,7 +106,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocuments($"\"{phrase}\"");
+            var results = _repository!.SearchDocuments($"\\\"{phrase}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the exact phrase was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the exact phrase was found.");
         }
@@ -115,8 +115,8 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void SearchDocumentsByContent_BooleanAND_ShouldReturnCorrectResults()
         {
-            string term1 = $"AndTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
-            string term2 = $"AndTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term1 = $"AndTermA_{Guid.NewGuid().ToString("N")}"; 
+            string term2 = $"AndTermB_{Guid.NewGuid().ToString("N")}"; 
             string docName1 = $"ContentAnd1_{Guid.NewGuid()}";
             string docContent1 = $"Contains {term1} and {term2}.";
             string docName2 = $"ContentAnd2_{Guid.NewGuid()}";
@@ -127,7 +127,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName2, docContent2);
             AddTestDocument(docName3, docContent3);
 
-            var results = _repository.SearchDocuments($"\"{term1}\" AND \"{term2}\"");
+            var results = _repository!.SearchDocuments($"\\\"{term1}\\\" AND \\\"{term2}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Count(d => d.Item1 == docName1) == 1, "Document with both terms not found or found multiple times.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document with only term1 found when ANDing.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document with only term2 found when ANDing.");
@@ -137,8 +137,8 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void SearchDocumentsByContent_BooleanOR_ShouldReturnCorrectResults()
         {
-            string term1 = $"OrTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
-            string term2 = $"OrTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term1 = $"OrTermA_{Guid.NewGuid().ToString("N")}"; 
+            string term2 = $"OrTermB_{Guid.NewGuid().ToString("N")}"; 
             string docName1 = $"ContentOr1_{Guid.NewGuid()}";
             string docContent1 = $"Contains {term1}.";
             string docName2 = $"ContentOr2_{Guid.NewGuid()}";
@@ -149,7 +149,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName2, docContent2);
             AddTestDocument(docName3, docContent3);
 
-            var results = _repository.SearchDocuments($"\"{term1}\" OR \"{term2}\"");
+            var results = _repository!.SearchDocuments($"\\\"{term1}\\\" OR \\\"{term2}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with term1 not found for OR query.");
             Assert.IsTrue(results.Any(d => d.Item1 == docName2), "Document with term2 not found for OR query.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document with neither term found for OR query.");
@@ -171,7 +171,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName2, docContent2);
             AddTestDocument(docName3, docContent3);
 
-            var results = _repository.SearchDocuments($"\"{prefix}*\"");
+            var results = _repository!.SearchDocuments($"\\\"{prefix}*\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with first prefix match not found.");
             Assert.IsTrue(results.Any(d => d.Item1 == docName2), "Document with second prefix match not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName3), "Document without prefix match found.");
@@ -190,7 +190,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{term}\"");
+            var results = _repository!.SearchDocumentsByName($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the term in name was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the term in name was found.");
         }
@@ -207,7 +207,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{phrase}\"");
+            var results = _repository!.SearchDocumentsByName($"\\\"{phrase}\\\""); // Added null-forgiving operator
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), "Document with the exact phrase in name was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), "Document without the exact phrase in name was found.");
         }
@@ -221,7 +221,7 @@ namespace ClobFts.Core.Tests
             AddTestDocument(docName1, "Content 1");
             AddTestDocument(docName2, "Content 2");
 
-            var allNames = _repository.GetAllDocumentNames();
+            var allNames = _repository!.GetAllDocumentNames(); // Added null-forgiving operator
             Assert.IsTrue(allNames.Contains(docName1), $"{docName1} not found in GetAllDocumentNames.");
             Assert.IsTrue(allNames.Contains(docName2), $"{docName2} not found in GetAllDocumentNames.");
         }
@@ -231,9 +231,9 @@ namespace ClobFts.Core.Tests
         public void SearchDocuments_NonExistentTerm_ShouldReturnEmptyList()
         {
             string term = $"NonExistentTerm_{Guid.NewGuid().ToString("N")}";
-            AddTestDocument($"DummyDoc_{Guid.NewGuid()}", "Some content to ensure table is not empty.");
+            AddTestDocument($"DummyDoc_{Guid.NewGuid()}\", "Some content to ensure table is not empty.");
             
-            var results = _repository.SearchDocuments($"\"{term}\"");
+            var results = _repository!.SearchDocuments($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.AreEqual(0, results.Count, "Found documents for a non-existent term.");
         }
 
@@ -242,38 +242,39 @@ namespace ClobFts.Core.Tests
         public void SearchDocumentsByName_NonExistentTerm_ShouldReturnEmptyList()
         {
             string term = $"NonExistentNameTerm_{Guid.NewGuid().ToString("N")}";
-            AddTestDocument($"DummyDocName_{Guid.NewGuid()}", "Some content.");
+            AddTestDocument($"DummyDocName_{Guid.NewGuid()}\", "Some content.");
 
-            var results = _repository.SearchDocumentsByName($"\"{term}\"");
+            var results = _repository!.SearchDocumentsByName($"\\\"{term}\\\""); // Added null-forgiving operator
             Assert.AreEqual(0, results.Count, "Found documents for a non-existent name term.");
         }
 
-        [TestMethod]
+         [TestMethod]
         [TestCategory("Integration")]
         public void AddDocument_EmptyName_ShouldThrowArgumentException()
         {
-            Assert.ThrowsException<ArgumentException>(() => _repository.AddDocument("", "content"));
+            Assert.ThrowsException<ArgumentException>(() => _repository!.AddDocument("", "content")); // Added null-forgiving operator
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void AddDocument_NullContent_ShouldThrowArgumentNullException()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => _repository.AddDocument("TestDoc", null));
+            // For this test to pass without CS8625, SqlClobRepository.AddDocument's 'content' param needs to be string?
+            Assert.ThrowsException<ArgumentNullException>(() => _repository!.AddDocument("TestDoc", null!)); // Added null-forgiving operator for _repository and null! for content
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void SearchDocuments_EmptyQuery_ShouldThrowArgumentException()
         {
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocuments(""));
+            Assert.ThrowsException<ArgumentException>(() => _repository!.SearchDocuments("")); // Added null-forgiving operator
         }
 
         [TestMethod]
         [TestCategory("Integration")]
         public void SearchDocumentsByName_EmptyQuery_ShouldThrowArgumentException()
         {
-            Assert.ThrowsException<ArgumentException>(() => _repository.SearchDocumentsByName(""));
+            Assert.ThrowsException<ArgumentException>(() => _repository!.SearchDocumentsByName("")); // Added null-forgiving operator
         }
     }
 }
