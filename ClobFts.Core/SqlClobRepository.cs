@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common; // For DbConnection, DbCommand, etc.
-using System.Data.SqlClient; // Still needed for the public constructor
+using Microsoft.Data.SqlClient; // Still needed for the public constructor
 
 namespace ClobFts.Core
 {
