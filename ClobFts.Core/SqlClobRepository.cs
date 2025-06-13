@@ -131,21 +131,26 @@ namespace ClobFts.Core
                 throw new ArgumentException("Document name query cannot be empty.", nameof(documentNameQuery));
 
             var foundDocuments = new List<Tuple<string, string>>();
-            // Use LIKE for partial matching of document names
-            // Corrected escaping for LIKE wildcards, removing the erroneous space for '%'
-            string sqlQuery = $"%{documentNameQuery.Replace("%", "[%]").Replace("_", "[_]") }%"; 
+            // Using FTS for document name search. 
+            // The query needs to be formatted for CONTAINS, typically with double quotes for exact phrases or wildcards.
+            // For simple substring-like search, a wildcard can be used, e.g., "*query*"
+            // However, leading wildcards are often problematic or less efficient in FTS.
+            // A common approach for prefix search is "query*"
+            // For this example, let's assume we want to find names containing the query words.
+            string ftsQuery = $"\"{documentNameQuery.Replace("\"", "\"\"")}\""; // Removed trailing space inside quotes
 
             using (DbConnection connection = _connectionFactory())
             {
                 connection.Open();
-                string sql = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery";
+                // Using CONTAINS on DocumentName for FTS
+                string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)";
                 using (DbCommand command = connection.CreateCommand())
                 {
                     command.CommandText = sql;
 
                     DbParameter queryParam = command.CreateParameter();
-                    queryParam.ParameterName = "@DocumentNameQuery";
-                    queryParam.Value = sqlQuery;
+                    queryParam.ParameterName = "@FtsQuery"; // Changed parameter name for clarity, though not strictly necessary if it was @DocumentNameQuery
+                    queryParam.Value = ftsQuery;
                     command.Parameters.Add(queryParam);
 
                     using (DbDataReader reader = command.ExecuteReader())

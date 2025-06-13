@@ -248,7 +248,8 @@ namespace ClobFts.Core.Tests
         {
             // Arrange
             string nameQuery = "Test";
-            string expectedSqlParam = "%Test%";
+            // string expectedSqlParam = "%Test%"; // Old LIKE based
+            string expectedFtsQuery = "\"Test\""; // FTS query
             var expectedResults = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("TestDoc1.txt", "Content of TestDoc1"),
@@ -267,20 +268,21 @@ namespace ClobFts.Core.Tests
                        .Callback(() => _mockDataReader.Setup(r => r.GetString(1)).Returns(expectedResults[1].Item2));
 
             _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
-            _parameterList.Clear(); // Clear params from previous tests if any
+            _parameterList.Clear(); 
 
             // Act
             var results = _repository.SearchDocumentsByName(nameQuery);
 
             // Assert
-            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+            // Changed to verify CONTAINS query and @FtsQuery parameter
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)", Times.Once());
             _mockCommand.Protected().Verify("ExecuteDbDataReader", Times.Once(), ItExpr.Is<CommandBehavior>(behavior => behavior == CommandBehavior.Default));
             
             Assert.AreEqual(1, _parameterList.Count);
             var param = _parameterList[0];
             Assert.IsNotNull(param);
-            Assert.AreEqual("@DocumentNameQuery", param.ParameterName);
-            Assert.AreEqual(expectedSqlParam, param.Value);
+            Assert.AreEqual("@FtsQuery", param.ParameterName); // Changed parameter name
+            Assert.AreEqual(expectedFtsQuery, param.Value); // Check FTS query value
 
             Assert.IsNotNull(results);
             Assert.AreEqual(expectedResults.Count, results.Count);
@@ -326,16 +328,16 @@ namespace ClobFts.Core.Tests
             // Assert
             Assert.IsNotNull(results);
             Assert.AreEqual(0, results.Count);
-            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+            // Changed to verify CONTAINS query
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)", Times.Once());
         }
 
         [TestMethod]
-        public void SearchDocumentsByName_QueryWithLikeWildcards_ShouldEscapeWildcardsInSqlQuery()
+        public void SearchDocumentsByName_QueryWithQuotes_ShouldEscapeQuotesInFtsQuery() // Renamed from QueryWithLikeWildcards
         {
             // Arrange
-            string nameQuery = "Test%Doc_Name"; // Contains % and _
-            // Expected escaped query for LIKE: %Test[%]Doc[_]Name%
-            string expectedSqlParam = "%Test[%]Doc[_]Name%"; 
+            string nameQuery = "Test \"Doc\" Name"; // Contains quotes
+            string expectedFtsQuery = "\"Test \"\"Doc\"\" Name\""; // FTS expects quotes to be doubled
 
             _mockDataReader.Setup(r => r.Read()).Returns(false);
             _mockCommand.Protected().Setup<DbDataReader>("ExecuteDbDataReader", ItExpr.Is<CommandBehavior>(b => b == CommandBehavior.Default)).Returns(_mockDataReader.Object);
@@ -345,12 +347,13 @@ namespace ClobFts.Core.Tests
             _repository.SearchDocumentsByName(nameQuery);
 
             // Assert
-            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE DocumentName LIKE @DocumentNameQuery", Times.Once());
+            // Changed to verify CONTAINS query and @FtsQuery parameter
+            _mockCommand.VerifySet(cmd => cmd.CommandText = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)", Times.Once());
             Assert.AreEqual(1, _parameterList.Count);
             var param = _parameterList[0];
             Assert.IsNotNull(param);
-            Assert.AreEqual("@DocumentNameQuery", param.ParameterName);
-            Assert.AreEqual(expectedSqlParam, param.Value);
+            Assert.AreEqual("@FtsQuery", param.ParameterName); // Changed parameter name
+            Assert.AreEqual(expectedFtsQuery, param.Value); // Check FTS query value
         }
     }
 }
