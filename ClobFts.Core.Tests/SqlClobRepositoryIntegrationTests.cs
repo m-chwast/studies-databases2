@@ -42,8 +42,8 @@ namespace ClobFts.Core.Tests
 
         private void AddTestDocument(string name, string content)
         {
-            _repository.AddDocument(name, content);
             _documentsToCleanup.Add(name);
+            _repository.AddDocument(name, content);
             Thread.Sleep(2500); // time for FTS indexing
         }
 
