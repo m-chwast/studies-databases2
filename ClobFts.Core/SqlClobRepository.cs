@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Data.Common; // For DbConnection, DbCommand, etc.
-using Microsoft.Data.SqlClient; // Still needed for the public constructor
+using System.Data.Common;
+using Microsoft.Data.SqlClient;
 
 namespace ClobFts.Core
 {
@@ -9,22 +9,19 @@ namespace ClobFts.Core
     {
         private readonly Func<DbConnection> _connectionFactory;
 
-        // Public constructor for normal use
+        // constructor for normal use
         public SqlClobRepository(string connectionString)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentNullException(nameof(connectionString));
 
-            // For normal operation, we create SqlConnection instances.
             _connectionFactory = () => {
                 var conn = new SqlConnection(connectionString);
-                // It's important that the connection is returned closed.
-                // The methods using it will open/close it.
                 return conn;
             };
         }
 
-        // Internal constructor for testing with a mocked connection factory
+        // constructor for mocks
         public SqlClobRepository(Func<DbConnection> connectionFactory)
         {
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
@@ -37,27 +34,25 @@ namespace ClobFts.Core
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
 
-            using (DbConnection connection = _connectionFactory())
-            {
-                connection.Open();
-                string sql = "INSERT INTO Documents (DocumentName, Content) VALUES (@DocumentName, @Content)";
-                using (DbCommand command = connection.CreateCommand())
-                {
-                    command.CommandText = sql;
+            using DbConnection connection = _connectionFactory();
+            connection.Open();
 
-                    DbParameter nameParam = command.CreateParameter();
-                    nameParam.ParameterName = "@DocumentName";
-                    nameParam.Value = documentName;
-                    command.Parameters.Add(nameParam);
+            using DbCommand command = connection.CreateCommand();
 
-                    DbParameter contentParam = command.CreateParameter();
-                    contentParam.ParameterName = "@Content";
-                    contentParam.Value = content;
-                    command.Parameters.Add(contentParam);
+            string sql = "INSERT INTO Documents (DocumentName, Content) VALUES (@DocumentName, @Content)";            
+            command.CommandText = sql;
 
-                    command.ExecuteNonQuery();
-                }
-            }
+            DbParameter nameParam = command.CreateParameter();
+            nameParam.ParameterName = "@DocumentName";
+            nameParam.Value = documentName;
+            command.Parameters.Add(nameParam);
+
+            DbParameter contentParam = command.CreateParameter();
+            contentParam.ParameterName = "@Content";
+            contentParam.Value = content;
+            command.Parameters.Add(contentParam);
+
+            command.ExecuteNonQuery();
         }
 
         public void DeleteDocument(string documentName)
@@ -65,26 +60,24 @@ namespace ClobFts.Core
             if (string.IsNullOrWhiteSpace(documentName))
                 throw new ArgumentException("Document name cannot be empty.", nameof(documentName));
 
-            using (DbConnection connection = _connectionFactory())
+            using DbConnection connection = _connectionFactory();
+            connection.Open();
+
+            using DbCommand command = connection.CreateCommand();
+            
+            string sql = "DELETE FROM Documents WHERE DocumentName = @DocumentName";
+            command.CommandText = sql;
+
+            DbParameter nameParam = command.CreateParameter();
+            nameParam.ParameterName = "@DocumentName";
+            nameParam.Value = documentName;
+            command.Parameters.Add(nameParam);
+
+            int rowsAffected = command.ExecuteNonQuery();
+            if (rowsAffected == 0)
             {
-                connection.Open();
-                string sql = "DELETE FROM Documents WHERE DocumentName = @DocumentName";
-                using (DbCommand command = connection.CreateCommand())
-                {
-                    command.CommandText = sql;
-
-                    DbParameter nameParam = command.CreateParameter();
-                    nameParam.ParameterName = "@DocumentName";
-                    nameParam.Value = documentName;
-                    command.Parameters.Add(nameParam);
-
-                    int rowsAffected = command.ExecuteNonQuery();
-                    if (rowsAffected == 0)
-                    {
-                        throw new Exception($"Document with name '{documentName}' not found or could not be deleted.");
-                    }
-                }
-            }
+                throw new Exception($"Document with name '{documentName}' not found or could not be deleted.");
+            }    
         }
 
         public List<Tuple<string, string>> SearchDocuments(string searchQuery)
@@ -93,35 +86,27 @@ namespace ClobFts.Core
                 throw new ArgumentException("Search query cannot be empty.", nameof(searchQuery));
 
             var foundDocuments = new List<Tuple<string, string>>();
-            // The searchQuery is now treated as a raw FTS query string.
-            string ftsQuery = searchQuery;
+            
+            using DbConnection connection = _connectionFactory();
+            
+            connection.Open();
 
-            using (DbConnection connection = _connectionFactory())
+            
+            using DbCommand command = connection.CreateCommand();
+            string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)";
+            command.CommandText = sql;
+
+            DbParameter queryParam = command.CreateParameter();
+            queryParam.ParameterName = "@FtsQuery";
+            queryParam.Value = searchQuery;
+            command.Parameters.Add(queryParam);
+
+            using DbDataReader reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                connection.Open();
-                // Select both DocumentName and Content
-                string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(Content, @FtsQuery)";
-                using (DbCommand command = connection.CreateCommand())
-                {
-                    command.CommandText = sql;
-
-                    DbParameter queryParam = command.CreateParameter();
-                    queryParam.ParameterName = "@FtsQuery";
-                    queryParam.Value = ftsQuery;
-                    command.Parameters.Add(queryParam);
-
-                    using (DbDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            // Assuming DocumentName is the first column (index 0)
-                            // and Content is the second column (index 1)
-                            string documentName = reader.GetString(0);
-                            string content = reader.GetString(1);
-                            foundDocuments.Add(new Tuple<string, string>(documentName, content));
-                        }
-                    }
-                }
+                string documentName = reader.GetString(0);
+                string content = reader.GetString(1);
+                foundDocuments.Add(new Tuple<string, string>(documentName, content));
             }
             return foundDocuments;
         }
@@ -132,33 +117,25 @@ namespace ClobFts.Core
                 throw new ArgumentException("Document name query cannot be empty.", nameof(documentNameQuery));
 
             var foundDocuments = new List<Tuple<string, string>>();
-            // The documentNameQuery is now treated as a raw FTS query string.
-            string ftsQuery = documentNameQuery;
 
-            using (DbConnection connection = _connectionFactory())
+            using DbConnection connection = _connectionFactory();
+            connection.Open();
+            
+            string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)";
+            using DbCommand command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            DbParameter queryParam = command.CreateParameter();
+            queryParam.ParameterName = "@FtsQuery";
+            queryParam.Value = documentNameQuery;
+            command.Parameters.Add(queryParam);
+
+            using DbDataReader reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                connection.Open();
-                // Using CONTAINS on DocumentName for FTS
-                string sql = "SELECT DocumentName, Content FROM Documents WHERE CONTAINS(DocumentName, @FtsQuery)";
-                using (DbCommand command = connection.CreateCommand())
-                {
-                    command.CommandText = sql;
-
-                    DbParameter queryParam = command.CreateParameter();
-                    queryParam.ParameterName = "@FtsQuery";
-                    queryParam.Value = ftsQuery; // Use the raw query string directly
-                    command.Parameters.Add(queryParam);
-
-                    using (DbDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            string documentName = reader.GetString(0);
-                            string content = reader.GetString(1);
-                            foundDocuments.Add(new Tuple<string, string>(documentName, content));
-                        }
-                    }
-                }
+                string documentName = reader.GetString(0);
+                string content = reader.GetString(1);
+                foundDocuments.Add(new Tuple<string, string>(documentName, content));
             }
             return foundDocuments;
         }
@@ -166,22 +143,20 @@ namespace ClobFts.Core
         public List<string> GetAllDocumentNames()
         {
             var documentNames = new List<string>();
-            using (DbConnection connection = _connectionFactory())
+            
+            using DbConnection connection = _connectionFactory();
+            connection.Open();
+
+            string sql = "SELECT DocumentName FROM Documents ORDER BY DocumentName";
+            using DbCommand command = connection.CreateCommand();
+            command.CommandText = sql;
+            
+            using DbDataReader reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                connection.Open();
-                string sql = "SELECT DocumentName FROM Documents ORDER BY DocumentName";
-                using (DbCommand command = connection.CreateCommand())
-                {
-                    command.CommandText = sql;
-                    using (DbDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            documentNames.Add(reader.GetString(0));
-                        }
-                    }
-                }
+                documentNames.Add(reader.GetString(0));
             }
+        
             return documentNames;
         }
     }
