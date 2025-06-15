@@ -11,8 +11,8 @@ namespace ClobFts.Core.Tests
     public class SqlClobRepositoryIntegrationTests
     {
         private const string TestConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
-        private SqlClobRepository _repository;
-        private List<string> _documentsToCleanup;
+        private SqlClobRepository _repository = new(TestConnectionString);
+        private List<string> _documentsToCleanup = new();
 
         [TestInitialize]
         public void TestInitialize()
@@ -259,7 +259,7 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void AddDocument_NullContent_ShouldThrowArgumentNullException()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => _repository.AddDocument("TestDoc", null));
+            Assert.ThrowsException<ArgumentNullException>(() => _repository.AddDocument("TestDoc", null!));
         }
 
         [TestMethod]
