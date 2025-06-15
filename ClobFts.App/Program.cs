@@ -113,6 +113,31 @@ namespace ClobFts.App
             Console.WriteLine($"Dokument '{nameToDelete}' usunięty pomyślnie.");
         }
 
+        private static void DisplayDocuments(List<Tuple<string, string>>? docs)
+        {
+            if (docs == null)
+            {
+                return;
+            }
+            foreach (var doc in docs)
+            {
+
+                Console.WriteLine("---");
+
+                Console.WriteLine("Nazwa: ");
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine($"{doc.Item1}");
+                Console.ResetColor();
+
+                Console.WriteLine("Treść: ");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"{doc.Item2}");
+                Console.ResetColor();
+
+                Console.WriteLine("---");
+            }
+        }
+
         private static void SearchDocumentsByContentUI()
         {
             Console.Write("Podaj frazę do wyszukania w treści: ");
@@ -127,23 +152,7 @@ namespace ClobFts.App
             if (results.Any())
             {
                 Console.WriteLine("Znalezione dokumenty:");
-                foreach (var doc in results)
-                {
-
-                    Console.WriteLine("---");
-
-                    Console.WriteLine("Nazwa: ");
-                    Console.ForegroundColor = ConsoleColor.Blue;
-                    Console.WriteLine($"{doc.Item1}");
-                    Console.ResetColor();
-
-                    Console.WriteLine("Treść: ");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"{doc.Item2}");
-                    Console.ResetColor();
-
-                    Console.WriteLine("---");
-                }
+                DisplayDocuments(results);
             }
             else
             {
@@ -165,12 +174,7 @@ namespace ClobFts.App
             if (results.Any())
             {
                 Console.WriteLine("Znalezione dokumenty (pasujące nazwą):");
-                foreach (var doc in results)
-                {
-                    Console.WriteLine($"- {doc.Item1}");
-                    Console.WriteLine($"  Treść: {doc.Item2}");
-                    Console.WriteLine("---");
-                }
+                DisplayDocuments(results);
             }
             else
             {
