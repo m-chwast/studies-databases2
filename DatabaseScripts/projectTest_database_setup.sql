@@ -25,7 +25,6 @@ GO
 USE projectTest;
 GO
 
--- create Documents table
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Documents' and xtype='U')
 CREATE TABLE Documents (
     DocumentId INT IDENTITY(1,1),
@@ -38,12 +37,10 @@ GO
 PRINT 'Table Documents created or already exists in project database with explicit PK_Documents.';
 GO
 
--- Enable FTS on Documents table
 IF NOT EXISTS (SELECT * FROM sys.fulltext_catalogs WHERE name = 'ft_ClobCatalog_projectTest')
 CREATE FULLTEXT CATALOG ft_ClobCatalog_projectTest AS DEFAULT;
 GO
 
--- Drop existing Full Text Index if it exists, before attempting to create a new one
 IF EXISTS (SELECT * FROM sys.fulltext_indexes fti JOIN sys.objects o ON fti.object_id = o.object_id WHERE o.name = 'Documents' AND o.schema_id = SCHEMA_ID('dbo'))
 BEGIN
     PRINT 'Full-Text Index on Documents table already exists. Dropping it.';
