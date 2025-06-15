@@ -8,7 +8,7 @@ namespace ClobFts.App
 {
     class Program
     {
-        private const string ConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
+        private const string ConnectionString = "Data Source=WINSERVER;Initial Catalog=project;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
         private static IClobRepository _repository = new SqlClobRepository(ConnectionString);
 
         static void Main(string[] args)

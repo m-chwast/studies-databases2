@@ -10,7 +10,7 @@ namespace ClobFts.Core.Tests
     [TestClass]
     public class SqlClobRepositoryIntegrationTests
     {
-        private const string TestConnectionString = "Data Source=WINSERVER;Initial Catalog=testCLR;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
+        private const string TestConnectionString = "Data Source=WINSERVER;Initial Catalog=projectTest;Integrated Security=True;Persist Security Info=False;Pooling=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=False";
         private SqlClobRepository _repository = new(TestConnectionString);
         private List<string> _documentsToCleanup = new();
 
