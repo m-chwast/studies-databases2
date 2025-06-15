@@ -1,57 +1,65 @@
--- Create Database 'project'
-IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'project')
-BEGIN
-    CREATE DATABASE project;
-END;
+-- project database setup
+
+USE master; -- Switch to master database context to allow dropping project
 GO
 
-PRINT 'Database project created or already exists.';
+IF DB_ID('project') IS NOT NULL
+BEGIN
+    PRINT 'Database project exists. Attempting to drop...';
+    ALTER DATABASE project SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE project;
+    PRINT 'Old database project dropped.';
+END
+ELSE
+BEGIN
+    PRINT 'Database project does not exist. No need to drop.';
+END
+GO
+
+CREATE DATABASE project;
+PRINT 'Database project created.';
 GO
 
 USE project;
 GO
 
--- Create the Documents table
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Documents' and xtype='U')
 CREATE TABLE Documents (
     DocumentId INT IDENTITY(1,1),
     DocumentName NVARCHAR(255) NOT NULL UNIQUE,
     Content NVARCHAR(MAX) NOT NULL,
-    CONSTRAINT PK_Documents PRIMARY KEY (DocumentId) -- Explicitly named Primary Key
+    CONSTRAINT PK_Documents PRIMARY KEY (DocumentId)
 );
 GO
 
-PRINT 'Table Documents created or already exists in project database with explicit PK_Documents.';
+PRINT 'Table Documents created or already exists in project database.';
 GO
 
--- Enable Full-Text Search on Documents table
 IF NOT EXISTS (SELECT * FROM sys.fulltext_catalogs WHERE name = 'ft_ClobCatalog_project')
 CREATE FULLTEXT CATALOG ft_ClobCatalog_project AS DEFAULT;
 GO
 
--- Drop existing Full-Text Index if it exists, before attempting to create a new one.
 IF EXISTS (SELECT * FROM sys.fulltext_indexes fti JOIN sys.objects o ON fti.object_id = o.object_id WHERE o.name = 'Documents' AND o.schema_id = SCHEMA_ID('dbo'))
 BEGIN
-    PRINT 'Full-Text Index on Documents table already exists. Dropping it.';
+    PRINT 'Dropping existing Full-Text Index on Documents table.';
     DROP FULLTEXT INDEX ON dbo.Documents;
 END
 GO
 
-PRINT 'Attempting to create Full-Text Index on Documents table...';
+PRINT 'Creating Full-Text Index on Documents table.';
 CREATE FULLTEXT INDEX ON dbo.Documents (
-    Content LANGUAGE 1033,      -- Specify your desired language. E.g., 1033 for English (US), 1045 for Polish.
-    DocumentName LANGUAGE 1033  -- Specify your desired language.
+    Content LANGUAGE 1033,
+    DocumentName LANGUAGE 1033
 )
 KEY INDEX PK_Documents
 ON ft_ClobCatalog_project
 WITH CHANGE_TRACKING AUTO;
 GO
 
-PRINT 'Full-Text Index on Documents table creation attempted.';
+PRINT 'Full-Text Index on Documents table created.';
 GO
 
--- Insert Sample Data into Documents table
-INSERT INTO Documents (DocumentName, Content) VALUES 
+INSERT INTO Documents (DocumentName, Content) VALUES
 ('TechnicalManual.pdf', 'This technical manual contains detailed instructions for operating industrial machinery. It includes safety protocols, maintenance schedules, and troubleshooting guides for various equipment types.'),
 ('ProjectProposal.docx', 'Our project proposal outlines the development of a new customer relationship management system. The system will integrate with existing databases and provide real-time analytics for sales teams.'),
 ('MeetingNotes_2024.txt', 'Meeting notes from quarterly review: discussed budget allocations, team performance metrics, and upcoming product launches. Action items include hiring additional developers and upgrading server infrastructure.'),
@@ -64,8 +72,8 @@ INSERT INTO Documents (DocumentName, Content) VALUES
 ('TechnicalSpecification.txt', 'Technical specification document for the new mobile application. Details system requirements, API integrations, user interface design, and performance benchmarks for deployment.');
 GO
 
-PRINT 'Sample data inserted into Documents table in project database.';
+PRINT 'Sample data inserted into Documents table.';
 GO
 
-PRINT 'Script execution for project database completed.';
+PRINT 'project database script completed.';
 GO
