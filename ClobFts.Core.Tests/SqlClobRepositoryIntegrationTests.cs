@@ -36,15 +36,15 @@ namespace ClobFts.Core.Tests
                     // Ignore errors during cleanup as document might have been deleted by the test itself
                 }
             }
-             // Ensure FTS changes from deletions are processed if any test failed mid-operation
-            Thread.Sleep(1000); // Adjusted sleep time for cleanup
+             // Ensure FTS changes from deletions are processed
+            Thread.Sleep(1000);
         }
 
         private void AddTestDocument(string name, string content)
         {
             _repository.AddDocument(name, content);
             _documentsToCleanup.Add(name);
-            Thread.Sleep(2500); // Increased sleep time for FTS indexing consistency
+            Thread.Sleep(2500); // time for FTS indexing
         }
 
         [TestMethod]
@@ -114,8 +114,8 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void SearchDocumentsByContent_BooleanAND_ShouldReturnCorrectResults()
         {
-            string term1 = $"AndTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
-            string term2 = $"AndTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term1 = $"AndTermA_{Guid.NewGuid().ToString("N")}";
+            string term2 = $"AndTermB_{Guid.NewGuid().ToString("N")}";
             string docName1 = $"ContentAnd1_{Guid.NewGuid()}";
             string docContent1 = $"Contains {term1} and {term2}.";
             string docName2 = $"ContentAnd2_{Guid.NewGuid()}";
@@ -136,8 +136,8 @@ namespace ClobFts.Core.Tests
         [TestCategory("Integration")]
         public void SearchDocumentsByContent_BooleanOR_ShouldReturnCorrectResults()
         {
-            string term1 = $"OrTermA_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
-            string term2 = $"OrTermB_{Guid.NewGuid().ToString("N")}"; // Changed for uniqueness
+            string term1 = $"OrTermA_{Guid.NewGuid().ToString("N")}";
+            string term2 = $"OrTermB_{Guid.NewGuid().ToString("N")}";
             string docName1 = $"ContentOr1_{Guid.NewGuid()}";
             string docContent1 = $"Contains {term1}.";
             string docName2 = $"ContentOr2_{Guid.NewGuid()}";
@@ -182,14 +182,14 @@ namespace ClobFts.Core.Tests
         public void SearchDocumentsByName_SingleTerm_ShouldReturnMatchingDocuments()
         {
             string uniqueTerm = $"NameTermUnique{Guid.NewGuid().ToString("N")}";
-            string docName1 = uniqueTerm; // docName1 is now exactly the uniqueTerm
+            string docName1 = uniqueTerm;
             string docContent1 = $"Content for {docName1}";
             string docName2 = $"OtherNameBeta_{Guid.NewGuid().ToString("N")}"; // Clearly distinct name
             string docContent2 = "Another content for beta.";
             AddTestDocument(docName1, docContent1);
             AddTestDocument(docName2, docContent2);
 
-            var results = _repository.SearchDocumentsByName($"\"{uniqueTerm}\""); // Search for the exact uniqueTerm
+            var results = _repository.SearchDocumentsByName($"\"{uniqueTerm}\"");
             Assert.IsTrue(results.Any(d => d.Item1 == docName1), $"Document with name '{docName1}' (matching search term '{uniqueTerm}') was not found.");
             Assert.IsFalse(results.Any(d => d.Item1 == docName2), $"Document '{docName2}' (which should not match term '{uniqueTerm}') was found unexpectedly.");
         }
@@ -199,7 +199,7 @@ namespace ClobFts.Core.Tests
         public void SearchDocumentsByName_Phrase_ShouldReturnExactMatches()
         {
             string uniquePhrase = $"Exact Name Phrase Search {Guid.NewGuid().ToString("N")}";
-            string docName1 = $"{uniquePhrase}_DocGamma"; // Simplified name structure
+            string docName1 = $"{uniquePhrase}_DocGamma"; 
             string docContent1 = $"Content for {docName1}";
             // Ensure docName2 does not contain uniquePhrase or its significant parts
             string docName2 = $"DifferentNameDelta_{Guid.NewGuid().ToString("N")} NotThePhrase"; 
