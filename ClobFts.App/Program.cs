@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic; // For List<T>
-using System.Linq; // For .Any()
-using System.Text; // For StringBuilder
-using ClobFts.Core; // Namespace for our library
+﻿using System.Text;
+using ClobFts.Core;
 
 namespace ClobFts.App
 {
@@ -13,7 +10,7 @@ namespace ClobFts.App
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Aplikacja do zarządzania dokumentami CLOB z FTS");
+            Console.WriteLine("CLOB z FTS");
             Console.WriteLine("-----------------------------------------------");
 
             bool keepRunning = true;
@@ -23,8 +20,8 @@ namespace ClobFts.App
                 Console.WriteLine("1. Dodaj dokument");
                 Console.WriteLine("2. Usuń dokument");
                 Console.WriteLine("3. Wyszukaj w dokumentach (po treści)");
-                Console.WriteLine("4. Wyszukaj dokumenty (po nazwie)"); // New option
-                Console.WriteLine("5. Wyjdź"); // Exit option shifted
+                Console.WriteLine("4. Wyszukaj dokumenty (po nazwie)");
+                Console.WriteLine("5. Wyjdź");
                 Console.Write("Twój wybór: ");
 
                 string choice = Console.ReadLine() ?? "";
@@ -40,12 +37,12 @@ namespace ClobFts.App
                             DeleteDocumentUI();
                             break;
                         case "3":
-                            SearchDocumentsByContentUI(); // Renamed for clarity
+                            SearchDocumentsByContentUI();
                             break;
-                        case "4": // New case
+                        case "4":
                             SearchDocumentsByNameUI();
                             break;
-                        case "5": // Exit case shifted
+                        case "5":
                             keepRunning = false;
                             break;
                         default:
@@ -93,13 +90,16 @@ namespace ClobFts.App
             {
                 foreach (var name in documentNames)
                 {
-                    Console.WriteLine($"- {name}");
+                    Console.Write("- ");
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine($"{name}");
+                    Console.ResetColor();
                 }
             }
             else
             {
                 Console.WriteLine("Brak dokumentów w bazie.");
-                return; // No documents to delete
+                return;
             }
 
             Console.Write("\nPodaj nazwę dokumentu do usunięcia: ");
@@ -113,7 +113,7 @@ namespace ClobFts.App
             Console.WriteLine($"Dokument '{nameToDelete}' usunięty pomyślnie.");
         }
 
-        private static void SearchDocumentsByContentUI() // Renamed for clarity
+        private static void SearchDocumentsByContentUI()
         {
             Console.Write("Podaj frazę do wyszukania w treści: ");
             string? query = Console.ReadLine();
@@ -129,8 +129,19 @@ namespace ClobFts.App
                 Console.WriteLine("Znalezione dokumenty:");
                 foreach (var doc in results)
                 {
-                    Console.WriteLine($"- {doc.Item1}");
-                    Console.WriteLine($"  Treść: {doc.Item2}"); // Wyświetl pełną treść
+
+                    Console.WriteLine("---");
+
+                    Console.WriteLine("Nazwa: ");
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine($"{doc.Item1}");
+                    Console.ResetColor();
+
+                    Console.WriteLine("Treść: ");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"{doc.Item2}");
+                    Console.ResetColor();
+
                     Console.WriteLine("---");
                 }
             }
@@ -140,13 +151,13 @@ namespace ClobFts.App
             }
         }
 
-        private static void SearchDocumentsByNameUI() // New UI method
+        private static void SearchDocumentsByNameUI()
         {
-            Console.Write("Podaj zapytanie FTS dla nazwy dokumentu (np. 'termin1 OR \"fraza druga\"'): "); // Updated prompt
+            Console.Write("Podaj zapytanie FTS dla nazwy dokumentu (np. 'termin1 OR \"fraza druga\"'): ");
             string? nameQuery = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(nameQuery))
             {
-                Console.WriteLine("Zapytanie FTS dla nazwy nie może być puste."); // Updated message
+                Console.WriteLine("Zapytanie FTS dla nazwy nie może być puste.");
                 return;
             }
             var results = _repository.SearchDocumentsByName(nameQuery);
